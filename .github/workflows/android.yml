@@ -22,14 +22,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
+          
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          accept-android-sdk-licenses: true
-          packages: |
-            platforms;android-35
-            build-tools;35.0.0
+          accept-android-sdk-licenses: false
+          packages: ''
+
+      - name: Install Android SDK Packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
 
       - name: Extract project
         run: unzip -o RumaGo_Android_Project.zip
