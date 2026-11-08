@@ -1,3 +1,4 @@
+
 name: Build RumaGo APK
 
 on:
@@ -55,6 +56,7 @@ jobs:
           project.write_text(p)
 
           a = app.read_text()
+          a = a.replace("minSdk 23", "minSdk 24")
           marker = "    id 'org.jetbrains.kotlin.android'"
           if "com.google.gms.google-services" not in a:
               a = a.replace(
@@ -104,3 +106,4 @@ jobs:
           name: RumaGo-APK
           path: RumaGo_Android_Project/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          
