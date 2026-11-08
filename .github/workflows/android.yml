@@ -22,7 +22,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -33,7 +33,6 @@ jobs:
         run: |
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
 
       - name: Extract project
         run: unzip -o RumaGo_Android_Project.zip
@@ -298,7 +297,7 @@ jobs:
                 <div class="panel" id="rgAuthPanel">
                   ${rgUser ? `
                     <h3>Akun RumaGo</h3>
-                    <p>${rgUser.email}</p>
+                    <p>${rgUser.email || ""}</p>
                     <p class="sub">Pelanggan</p>
                     <button class="primary" onclick="rgLogout()">Keluar</button>
                   ` : `
@@ -378,37 +377,48 @@ jobs:
             };
 
             window.rgLogout = function() {
+              const button = document.querySelector("#rgAuthPanel button");
+              if (button) button.disabled = true;
+
               RumaGoAuth.logout();
             };
 
             window.onRumaGoAuthResult = function(result) {
-              const message = result.code
-                ? result.message + " (" + result.code + ")"
-                : result.message;
-
-              if (result.ok) {
+              if (result.ok && result.uid) {
                 rgUser = {
                   uid: result.uid,
-                  email: result.email
+                  email: result.email || ""
                 };
 
-                alert(message);
                 renderAuthPanel(true);
-              } else {
-                const target = document.getElementById("rgMessage");
 
-                if (target) {
-                  target.textContent = message;
-                } else {
-                  alert(message);
-                }
+                if (result.message) alert(result.message);
+                return;
               }
+
+              if (result.ok) {
+                rgUser = null;
+                renderAuthPanel(true);
+                return;
+              }
+
+              const target = document.getElementById("rgMessage");
+
+              if (target) {
+                target.textContent =
+                  result.message || "Terjadi kesalahan.";
+              } else {
+                alert(result.message || "Terjadi kesalahan.");
+              }
+
+              const button = document.querySelector("#rgAuthPanel button");
+              if (button) button.disabled = false;
             };
 
             window.onRumaGoAuthState = function(result) {
               rgUser = result.loggedIn ? {
                 uid: result.uid,
-                email: result.email
+                email: result.email || ""
               } : null;
 
               renderAuthPanel(true);
