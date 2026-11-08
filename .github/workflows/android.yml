@@ -237,6 +237,161 @@ jobs:
           print("MainActivity berhasil diperbarui")
           PY
 
+
+      - name: Configure RumaGo Login UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          file = Path("RumaGo_Android_Project/app/src/main/assets/index.html")
+          html = file.read_text()
+
+          marker = "RUMAGO_FIREBASE_LOGIN_UI"
+          if marker in html:
+              print("Login UI sudah tersedia")
+          else:
+              script = r"""
+          <script>
+          // RUMAGO_FIREBASE_LOGIN_UI
+          (function () {
+            let rgUser = null;
+            let rgRole = "customer";
+
+            const originalRender = window.render;
+
+            window.render = function () {
+              originalRender();
+
+              if (typeof current !== "undefined" && current === "account") {
+                const app = document.getElementById("app");
+
+                if (rgUser) {
+                  app.insertAdjacentHTML("beforeend", `
+                    <div class="panel" style="margin-top:15px">
+                      <h3>Akun RumaGo</h3>
+                      <p>${rgUser.email}</p>
+                      <p class="sub">Pelanggan</p>
+                      <button class="primary" onclick="rgLogout()">Keluar</button>
+                    </div>
+                  `);
+                } else {
+                  app.insertAdjacentHTML("beforeend", `
+                    <div class="panel" style="margin-top:15px">
+                      <h3>Login RumaGo</h3>
+                      <p class="sub">Belanja lebih mudah dengan akun RumaGo.</p>
+
+                      <label>Jenis akun</label>
+                      <select id="rgRole" class="field" onchange="rgChangeRole(this.value)">
+                        <option value="customer">Pelanggan</option>
+                        <option value="admin">Admin (belum diaktifkan)</option>
+                        <option value="courier">Kurir (belum diaktifkan)</option>
+                      </select>
+
+                      <label>Email</label>
+                      <input id="rgEmail" type="email" placeholder="Masukkan email">
+
+                      <label>Password</label>
+                      <input id="rgPassword" type="password" placeholder="Minimal 6 karakter">
+
+                      <button class="primary" onclick="rgLogin()">Login</button>
+                      <button class="primary" style="margin-top:8px" onclick="rgRegister()">Daftar Akun</button>
+
+                      <p id="rgMessage" class="sub" style="margin-top:12px"></p>
+                    </div>
+                  `);
+                }
+              }
+            };
+
+            window.rgChangeRole = function (role) {
+              rgRole = role;
+              const message = document.getElementById("rgMessage");
+              if (role !== "customer" && message) {
+                message.textContent = "Akses Admin dan Kurir menunggu pengaturan hak akses.";
+              } else if (message) {
+                message.textContent = "";
+              }
+            };
+
+            window.rgLogin = function () {
+              const email = document.getElementById("rgEmail").value.trim();
+              const password = document.getElementById("rgPassword").value;
+              const message = document.getElementById("rgMessage");
+
+              if (rgRole !== "customer") {
+                message.textContent = "Login Admin/Kurir belum diaktifkan.";
+                return;
+              }
+
+              if (!email || !password) {
+                message.textContent = "Email dan password wajib diisi.";
+                return;
+              }
+
+              message.textContent = "Memeriksa akun...";
+              RumaGoAuth.login(email, password);
+            };
+
+            window.rgRegister = function () {
+              const email = document.getElementById("rgEmail").value.trim();
+              const password = document.getElementById("rgPassword").value;
+              const message = document.getElementById("rgMessage");
+
+              if (rgRole !== "customer") {
+                message.textContent = "Pendaftaran hanya tersedia untuk pelanggan.";
+                return;
+              }
+
+              if (!email || password.length < 6) {
+                message.textContent = "Isi email dan password minimal 6 karakter.";
+                return;
+              }
+
+              message.textContent = "Mendaftarkan akun...";
+              RumaGoAuth.register(email, password);
+            };
+
+            window.rgLogout = function () {
+              RumaGoAuth.logout();
+            };
+
+            window.onRumaGoAuthResult = function (result) {
+              if (result.ok) {
+                rgUser = {
+                  uid: result.uid,
+                  email: result.email
+                };
+                alert(result.message);
+                page("account");
+              } else {
+                const message = document.getElementById("rgMessage");
+                if (message) message.textContent = result.message;
+                else alert(result.message);
+              }
+            };
+
+            window.onRumaGoAuthState = function (result) {
+              rgUser = result.loggedIn ? {
+                uid: result.uid,
+                email: result.email
+              } : null;
+
+              if (typeof current !== "undefined" && current === "account") {
+                render();
+              }
+            };
+          })();
+          </script>
+          """
+
+              if "</body>" not in html:
+                  raise SystemExit("Tag body tidak ditemukan")
+
+              html = html.replace("</body>", script + "\n</body>")
+              file.write_text(html)
+              print("Login UI berhasil ditambahkan")
+          PY
+
       - name: Fix Java and Kotlin Version
         run: |
           cat >> RumaGo_Android_Project/app/build.gradle <<'EOF'
