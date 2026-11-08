@@ -45,9 +45,9 @@ jobs:
           root = Path("RumaGo_Android_Project")
           project = root / "build.gradle"
           app = root / "app/build.gradle"
-
           p = project.read_text()
-          marker = "    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false"
+          p = p.replace("version '2.0.21'", "version '2.4.21'")
+          marker = "    id 'org.jetbrains.kotlin.android' version '2.4.21' apply false"
           if "com.google.gms.google-services" not in p:
               p = p.replace(
                   marker,
