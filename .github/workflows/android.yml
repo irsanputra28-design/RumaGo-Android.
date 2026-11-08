@@ -25,9 +25,6 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: false
-          packages: ''
 
       - name: Install Android SDK Packages
         run: |
@@ -55,7 +52,6 @@ jobs:
                   marker,
                   marker + "\n    id 'com.google.gms.google-services' version '4.5.0' apply false"
               )
-
           project.write_text(p)
 
           a = app.read_text()
@@ -70,7 +66,7 @@ jobs:
 
           if "firebase-bom" not in a:
               a += """
-
+          
           dependencies {
               implementation platform('com.google.firebase:firebase-bom:35.1.0')
               implementation 'com.google.firebase:firebase-auth'
@@ -106,6 +102,7 @@ jobs:
           import android.view.ViewGroup
           import android.graphics.Color
           import com.google.firebase.auth.FirebaseAuth
+          import com.google.firebase.auth.FirebaseAuthException
           import org.json.JSONObject
 
           class MainActivity : Activity() {
@@ -125,6 +122,7 @@ jobs:
               }
 
               inner class AuthBridge {
+
                   @JavascriptInterface
                   fun register(email: String, password: String) {
                       auth.createUserWithEmailAndPassword(email, password)
@@ -133,6 +131,10 @@ jobs:
                               result.put("ok", task.isSuccessful)
                               result.put("uid", auth.currentUser?.uid ?: "")
                               result.put("email", auth.currentUser?.email ?: "")
+                              result.put(
+                                  "code",
+                                  (task.exception as? FirebaseAuthException)?.errorCode ?: ""
+                              )
                               result.put(
                                   "message",
                                   if (task.isSuccessful) "Pendaftaran berhasil"
@@ -150,10 +152,16 @@ jobs:
                               result.put("ok", task.isSuccessful)
                               result.put("uid", auth.currentUser?.uid ?: "")
                               result.put("email", auth.currentUser?.email ?: "")
+
+                              val exception = task.exception
+                              result.put(
+                                  "code",
+                                  (exception as? FirebaseAuthException)?.errorCode ?: "UNKNOWN_ERROR"
+                              )
                               result.put(
                                   "message",
                                   if (task.isSuccessful) "Login berhasil"
-                                  else task.exception?.localizedMessage ?: "Login gagal"
+                                  else exception?.localizedMessage ?: "Login gagal"
                               )
                               sendToPage("onRumaGoAuthResult", result)
                           }
@@ -237,7 +245,6 @@ jobs:
           print("MainActivity berhasil diperbarui")
           PY
 
-
       - name: Configure RumaGo Login UI
         run: |
           python3 - <<'PY'
@@ -247,9 +254,8 @@ jobs:
           html = file.read_text()
 
           marker = "RUMAGO_FIREBASE_LOGIN_UI"
-          if marker in html:
-              print("Login UI sudah tersedia")
-          else:
+
+          if marker not in html:
               script = r"""
           <script>
           // RUMAGO_FIREBASE_LOGIN_UI
@@ -257,63 +263,55 @@ jobs:
             let rgUser = null;
             let rgRole = "customer";
 
-            const originalRender = window.render;
+            function renderAuthPanel() {
+              const app = document.getElementById("app");
+              if (!app) return;
 
-            window.render = function () {
-              originalRender();
+              const heading = app.querySelector("h2");
+              if (!heading || heading.textContent.trim() !== "Akun Saya") return;
 
-              if (typeof current !== "undefined" && current === "account") {
-                const app = document.getElementById("app");
+              if (document.getElementById("rgAuthPanel")) return;
 
-                if (rgUser) {
-                  app.insertAdjacentHTML("beforeend", `
-                    <div class="panel" style="margin-top:15px">
-                      <h3>Akun RumaGo</h3>
-                      <p>${rgUser.email}</p>
-                      <p class="sub">Pelanggan</p>
-                      <button class="primary" onclick="rgLogout()">Keluar</button>
-                    </div>
-                  `);
-                } else {
-                  app.insertAdjacentHTML("beforeend", `
-                    <div class="panel" style="margin-top:15px">
-                      <h3>Login RumaGo</h3>
-                      <p class="sub">Belanja lebih mudah dengan akun RumaGo.</p>
+              app.innerHTML = `
+                <h2>Akun Saya</h2>
+                <div class="panel" id="rgAuthPanel">
+                  ${rgUser ? `
+                    <h3>Akun RumaGo</h3>
+                    <p>${rgUser.email}</p>
+                    <p class="sub">Pelanggan</p>
+                    <button class="primary" onclick="rgLogout()">Keluar</button>
+                  ` : `
+                    <h3>Login RumaGo</h3>
+                    <p class="sub">Belanja lebih mudah dengan akun RumaGo.</p>
+                    <label>Jenis akun</label>
+                    <select id="rgRole" class="field" onchange="rgChangeRole(this.value)">
+                      <option value="customer">Pelanggan</option>
+                      <option value="admin">Admin (belum diaktifkan)</option>
+                      <option value="courier">Kurir (belum diaktifkan)</option>
+                    </select>
+                    <label>Email</label>
+                    <input id="rgEmail" type="email" placeholder="Masukkan email">
+                    <label>Password</label>
+                    <input id="rgPassword" type="password" placeholder="Minimal 6 karakter">
+                    <button class="primary" onclick="rgLogin()">Login</button>
+                    <button class="primary" style="margin-top:8px" onclick="rgRegister()">Daftar Akun</button>
+                    <p id="rgMessage" class="sub" style="margin-top:12px"></p>
+                  `}
+                </div>
+              `;
+            }
 
-                      <label>Jenis akun</label>
-                      <select id="rgRole" class="field" onchange="rgChangeRole(this.value)">
-                        <option value="customer">Pelanggan</option>
-                        <option value="admin">Admin (belum diaktifkan)</option>
-                        <option value="courier">Kurir (belum diaktifkan)</option>
-                      </select>
-
-                      <label>Email</label>
-                      <input id="rgEmail" type="email" placeholder="Masukkan email">
-
-                      <label>Password</label>
-                      <input id="rgPassword" type="password" placeholder="Minimal 6 karakter">
-
-                      <button class="primary" onclick="rgLogin()">Login</button>
-                      <button class="primary" style="margin-top:8px" onclick="rgRegister()">Daftar Akun</button>
-
-                      <p id="rgMessage" class="sub" style="margin-top:12px"></p>
-                    </div>
-                  `);
-                }
-              }
-            };
-
-            window.rgChangeRole = function (role) {
+            window.rgChangeRole = function(role) {
               rgRole = role;
               const message = document.getElementById("rgMessage");
-              if (role !== "customer" && message) {
-                message.textContent = "Akses Admin dan Kurir menunggu pengaturan hak akses.";
-              } else if (message) {
-                message.textContent = "";
+              if (message) {
+                message.textContent = role === "customer"
+                  ? ""
+                  : "Akses Admin dan Kurir belum diaktifkan.";
               }
             };
 
-            window.rgLogin = function () {
+            window.rgLogin = function() {
               const email = document.getElementById("rgEmail").value.trim();
               const password = document.getElementById("rgPassword").value;
               const message = document.getElementById("rgMessage");
@@ -332,7 +330,7 @@ jobs:
               RumaGoAuth.login(email, password);
             };
 
-            window.rgRegister = function () {
+            window.rgRegister = function() {
               const email = document.getElementById("rgEmail").value.trim();
               const password = document.getElementById("rgPassword").value;
               const message = document.getElementById("rgMessage");
@@ -351,35 +349,45 @@ jobs:
               RumaGoAuth.register(email, password);
             };
 
-            window.rgLogout = function () {
+            window.rgLogout = function() {
               RumaGoAuth.logout();
             };
 
-            window.onRumaGoAuthResult = function (result) {
+            window.onRumaGoAuthResult = function(result) {
+              const message = result.code
+                ? result.message + " (" + result.code + ")"
+                : result.message;
+
               if (result.ok) {
                 rgUser = {
                   uid: result.uid,
                   email: result.email
                 };
-                alert(result.message);
-                page("account");
+                alert(message);
+                renderAuthPanel();
               } else {
-                const message = document.getElementById("rgMessage");
-                if (message) message.textContent = result.message;
-                else alert(result.message);
+                const target = document.getElementById("rgMessage");
+                if (target) target.textContent = message;
+                else alert(message);
               }
             };
 
-            window.onRumaGoAuthState = function (result) {
+            window.onRumaGoAuthState = function(result) {
               rgUser = result.loggedIn ? {
                 uid: result.uid,
                 email: result.email
               } : null;
-
-              if (typeof current !== "undefined" && current === "account") {
-                render();
-              }
+              renderAuthPanel();
             };
+
+            const app = document.getElementById("app");
+            if (app) {
+              new MutationObserver(renderAuthPanel).observe(app, {
+                childList: true,
+                subtree: true
+              });
+              renderAuthPanel();
+            }
           })();
           </script>
           """
@@ -390,6 +398,8 @@ jobs:
               html = html.replace("</body>", script + "\n</body>")
               file.write_text(html)
               print("Login UI berhasil ditambahkan")
+          else:
+              print("Login UI sudah tersedia")
           PY
 
       - name: Fix Java and Kotlin Version
@@ -419,4 +429,3 @@ jobs:
           name: RumaGo-APK
           path: RumaGo_Android_Project/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          
