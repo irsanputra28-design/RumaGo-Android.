@@ -109,6 +109,7 @@ jobs:
           import android.graphics.Color
           import com.google.firebase.auth.FirebaseAuth
           import com.google.firebase.auth.FirebaseAuthException
+          import com.google.firebase.firestore.FirebaseFirestore
           import org.json.JSONObject
 
           class MainActivity : Activity() {
@@ -189,6 +190,42 @@ jobs:
                   }
 
                   @JavascriptInterface
+                  fun getRole() {
+                      val user = auth.currentUser
+
+                      if (user == null) {
+                          val result = JSONObject()
+                          result.put("ok", false)
+                          result.put("message", "Silakan login kembali")
+                          sendToPage("onRumaGoRoleResult", result)
+                          return
+                      }
+
+                      FirebaseFirestore.getInstance()
+                          .collection("users")
+                          .document(user.uid)
+                          .get()
+                          .addOnSuccessListener { document ->
+                              val result = JSONObject()
+                              result.put("ok", true)
+                              result.put(
+                                  "role",
+                                  document.getString("role") ?: "customer"
+                              )
+                              sendToPage("onRumaGoRoleResult", result)
+                          }
+                          .addOnFailureListener { error ->
+                              val result = JSONObject()
+                              result.put("ok", false)
+                              result.put(
+                                  "message",
+                                  error.localizedMessage ?: "Gagal memeriksa hak akses"
+                              )
+                              sendToPage("onRumaGoRoleResult", result)
+                          }
+                  }
+
+                  @JavascriptInterface
                   fun getCurrentUser() {
                       val user = auth.currentUser
 
@@ -260,7 +297,7 @@ jobs:
           print("MainActivity berhasil diperbarui")
           PY
 
-      - name: Configure RumaGo Login UI
+      - name: Configure RumaGo Login and Role Dashboard
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -277,6 +314,7 @@ jobs:
           (function () {
             let rgUser = null;
             let rgRole = "customer";
+            let rgRoleError = "";
 
             function renderAuthPanel(force) {
               const app = document.getElementById("app");
@@ -284,11 +322,46 @@ jobs:
 
               const heading = app.querySelector("h2");
 
-              if (!heading || heading.textContent.trim() !== "Akun Saya") {
+              if (
+                !heading ||
+                (heading.textContent.trim() !== "Akun Saya" &&
+                 heading.textContent.trim() !== "RumaGo Admin")
+              ) return;
+
+              if (!force && document.getElementById("rgAuthPanel")) {
                 return;
               }
 
-              if (!force && document.getElementById("rgAuthPanel")) {
+              if (rgUser && rgRole === "admin") {
+                app.innerHTML = `
+                  <h2>RumaGo Admin</h2>
+                  <div class="panel" id="rgAuthPanel">
+                    <h3>Dashboard Admin</h3>
+                    <p>${rgUser.email || ""}</p>
+
+                    <div class="panel">
+                      <h3>Produk</h3>
+                      <p class="sub">Tambah dan kelola produk.</p>
+                    </div>
+
+                    <div class="panel">
+                      <h3>Stok</h3>
+                      <p class="sub">Atur persediaan.</p>
+                    </div>
+
+                    <div class="panel">
+                      <h3>Pesanan</h3>
+                      <p class="sub">Pantau pesanan.</p>
+                    </div>
+
+                    <div class="panel">
+                      <h3>Pelanggan</h3>
+                      <p class="sub">Kelola pelanggan.</p>
+                    </div>
+
+                    <button class="primary" onclick="rgLogout()">Keluar</button>
+                  </div>
+                `;
                 return;
               }
 
@@ -305,10 +378,8 @@ jobs:
                     <p class="sub">Belanja lebih mudah dengan akun RumaGo.</p>
 
                     <label>Jenis akun</label>
-                    <select id="rgRole" class="field" onchange="rgChangeRole(this.value)">
+                    <select id="rgRole" class="field">
                       <option value="customer">Pelanggan</option>
-                      <option value="admin">Admin (belum diaktifkan)</option>
-                      <option value="courier">Kurir (belum diaktifkan)</option>
                     </select>
 
                     <label>Email</label>
@@ -326,27 +397,10 @@ jobs:
               `;
             }
 
-            window.rgChangeRole = function(role) {
-              rgRole = role;
-
-              const message = document.getElementById("rgMessage");
-
-              if (message) {
-                message.textContent = role === "customer"
-                  ? ""
-                  : "Akses Admin dan Kurir belum diaktifkan.";
-              }
-            };
-
             window.rgLogin = function() {
               const email = document.getElementById("rgEmail").value.trim();
               const password = document.getElementById("rgPassword").value;
               const message = document.getElementById("rgMessage");
-
-              if (rgRole !== "customer") {
-                message.textContent = "Login Admin/Kurir belum diaktifkan.";
-                return;
-              }
 
               if (!email || !password) {
                 message.textContent = "Email dan password wajib diisi.";
@@ -362,11 +416,6 @@ jobs:
               const password = document.getElementById("rgPassword").value;
               const message = document.getElementById("rgMessage");
 
-              if (rgRole !== "customer") {
-                message.textContent = "Pendaftaran hanya tersedia untuk pelanggan.";
-                return;
-              }
-
               if (!email || password.length < 6) {
                 message.textContent = "Isi email dan password minimal 6 karakter.";
                 return;
@@ -379,9 +428,14 @@ jobs:
             window.rgLogout = function() {
               const button = document.querySelector("#rgAuthPanel button");
               if (button) button.disabled = true;
-
               RumaGoAuth.logout();
             };
+
+            function checkRole() {
+              rgRole = "customer";
+              rgRoleError = "";
+              if (rgUser) RumaGoAuth.getRole();
+            }
 
             window.onRumaGoAuthResult = function(result) {
               if (result.ok && result.uid) {
@@ -390,7 +444,9 @@ jobs:
                   email: result.email || ""
                 };
 
+                rgRole = "customer";
                 renderAuthPanel(true);
+                RumaGoAuth.getRole();
 
                 if (result.message) alert(result.message);
                 return;
@@ -398,6 +454,7 @@ jobs:
 
               if (result.ok) {
                 rgUser = null;
+                rgRole = "customer";
                 renderAuthPanel(true);
                 return;
               }
@@ -405,8 +462,7 @@ jobs:
               const target = document.getElementById("rgMessage");
 
               if (target) {
-                target.textContent =
-                  result.message || "Terjadi kesalahan.";
+                target.textContent = result.message || "Terjadi kesalahan.";
               } else {
                 alert(result.message || "Terjadi kesalahan.");
               }
@@ -415,13 +471,29 @@ jobs:
               if (button) button.disabled = false;
             };
 
+            window.onRumaGoRoleResult = function(result) {
+              if (!result || !result.ok) {
+                rgRole = "customer";
+                rgRoleError = result && result.message
+                  ? result.message
+                  : "Gagal memeriksa hak akses.";
+                return;
+              }
+
+              rgRoleError = "";
+              rgRole = result.role === "admin" ? "admin" : "customer";
+              renderAuthPanel(true);
+            };
+
             window.onRumaGoAuthState = function(result) {
               rgUser = result.loggedIn ? {
                 uid: result.uid,
                 email: result.email || ""
               } : null;
 
+              rgRole = "customer";
               renderAuthPanel(true);
+              checkRole();
             };
 
             const app = document.getElementById("app");
@@ -446,9 +518,9 @@ jobs:
               html = html.replace("</body>", script + "\n</body>")
               file.write_text(html)
 
-              print("Login UI berhasil ditambahkan")
+              print("Login dan Dashboard Admin berhasil ditambahkan")
           else:
-              print("Login UI sudah tersedia")
+              print("Login UI sudah tersedia, tidak ditambahkan ulang")
           PY
 
       - name: Fix Java and Kotlin Version
