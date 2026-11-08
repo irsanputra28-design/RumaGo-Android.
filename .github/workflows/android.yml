@@ -25,11 +25,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK Packages
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        with:
+          accept-android-sdk-licenses: true
+          packages: |
+            platforms;android-35
+            build-tools;35.0.0
 
       - name: Extract project
         run: unzip -o RumaGo_Android_Project.zip
@@ -47,17 +47,20 @@ jobs:
           p = p.replace("version '2.0.21'", "version '2.4.21'")
 
           marker = "    id 'org.jetbrains.kotlin.android' version '2.4.21' apply false"
+
           if "com.google.gms.google-services" not in p:
               p = p.replace(
                   marker,
                   marker + "\n    id 'com.google.gms.google-services' version '4.5.0' apply false"
               )
+
           project.write_text(p)
 
           a = app.read_text()
           a = a.replace("minSdk 23", "minSdk 24")
 
           marker = "    id 'org.jetbrains.kotlin.android'"
+
           if "com.google.gms.google-services" not in a:
               a = a.replace(
                   marker,
@@ -66,7 +69,7 @@ jobs:
 
           if "firebase-bom" not in a:
               a += """
-          
+
           dependencies {
               implementation platform('com.google.firebase:firebase-bom:35.1.0')
               implementation 'com.google.firebase:firebase-auth'
@@ -107,6 +110,7 @@ jobs:
 
           class MainActivity : Activity() {
               private lateinit var webView: WebView
+
               private val auth: FirebaseAuth by lazy {
                   FirebaseAuth.getInstance()
               }
@@ -154,15 +158,18 @@ jobs:
                               result.put("email", auth.currentUser?.email ?: "")
 
                               val exception = task.exception
+
                               result.put(
                                   "code",
                                   (exception as? FirebaseAuthException)?.errorCode ?: "UNKNOWN_ERROR"
                               )
+
                               result.put(
                                   "message",
                                   if (task.isSuccessful) "Login berhasil"
                                   else exception?.localizedMessage ?: "Login gagal"
                               )
+
                               sendToPage("onRumaGoAuthResult", result)
                           }
                   }
@@ -170,19 +177,23 @@ jobs:
                   @JavascriptInterface
                   fun logout() {
                       auth.signOut()
+
                       val result = JSONObject()
                       result.put("ok", true)
                       result.put("message", "Berhasil keluar")
+
                       sendToPage("onRumaGoAuthResult", result)
                   }
 
                   @JavascriptInterface
                   fun getCurrentUser() {
                       val user = auth.currentUser
+
                       val result = JSONObject()
                       result.put("loggedIn", user != null)
                       result.put("uid", user?.uid ?: "")
                       result.put("email", user?.email ?: "")
+
                       sendToPage("onRumaGoAuthState", result)
                   }
               }
@@ -197,6 +208,7 @@ jobs:
                       android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
 
                   webView = WebView(this)
+
                   webView.layoutParams = ViewGroup.LayoutParams(
                       ViewGroup.LayoutParams.MATCH_PARENT,
                       ViewGroup.LayoutParams.MATCH_PARENT
@@ -263,14 +275,19 @@ jobs:
             let rgUser = null;
             let rgRole = "customer";
 
-            function renderAuthPanel() {
+            function renderAuthPanel(force) {
               const app = document.getElementById("app");
               if (!app) return;
 
               const heading = app.querySelector("h2");
-              if (!heading || heading.textContent.trim() !== "Akun Saya") return;
 
-              if (document.getElementById("rgAuthPanel")) return;
+              if (!heading || heading.textContent.trim() !== "Akun Saya") {
+                return;
+              }
+
+              if (!force && document.getElementById("rgAuthPanel")) {
+                return;
+              }
 
               app.innerHTML = `
                 <h2>Akun Saya</h2>
@@ -283,18 +300,23 @@ jobs:
                   ` : `
                     <h3>Login RumaGo</h3>
                     <p class="sub">Belanja lebih mudah dengan akun RumaGo.</p>
+
                     <label>Jenis akun</label>
                     <select id="rgRole" class="field" onchange="rgChangeRole(this.value)">
                       <option value="customer">Pelanggan</option>
                       <option value="admin">Admin (belum diaktifkan)</option>
                       <option value="courier">Kurir (belum diaktifkan)</option>
                     </select>
+
                     <label>Email</label>
                     <input id="rgEmail" type="email" placeholder="Masukkan email">
+
                     <label>Password</label>
                     <input id="rgPassword" type="password" placeholder="Minimal 6 karakter">
+
                     <button class="primary" onclick="rgLogin()">Login</button>
                     <button class="primary" style="margin-top:8px" onclick="rgRegister()">Daftar Akun</button>
+
                     <p id="rgMessage" class="sub" style="margin-top:12px"></p>
                   `}
                 </div>
@@ -303,7 +325,9 @@ jobs:
 
             window.rgChangeRole = function(role) {
               rgRole = role;
+
               const message = document.getElementById("rgMessage");
+
               if (message) {
                 message.textContent = role === "customer"
                   ? ""
@@ -363,12 +387,17 @@ jobs:
                   uid: result.uid,
                   email: result.email
                 };
+
                 alert(message);
-                renderAuthPanel();
+                renderAuthPanel(true);
               } else {
                 const target = document.getElementById("rgMessage");
-                if (target) target.textContent = message;
-                else alert(message);
+
+                if (target) {
+                  target.textContent = message;
+                } else {
+                  alert(message);
+                }
               }
             };
 
@@ -377,16 +406,21 @@ jobs:
                 uid: result.uid,
                 email: result.email
               } : null;
-              renderAuthPanel();
+
+              renderAuthPanel(true);
             };
 
             const app = document.getElementById("app");
+
             if (app) {
-              new MutationObserver(renderAuthPanel).observe(app, {
+              new MutationObserver(function() {
+                renderAuthPanel(false);
+              }).observe(app, {
                 childList: true,
                 subtree: true
               });
-              renderAuthPanel();
+
+              renderAuthPanel(false);
             }
           })();
           </script>
@@ -397,6 +431,7 @@ jobs:
 
               html = html.replace("</body>", script + "\n</body>")
               file.write_text(html)
+
               print("Login UI berhasil ditambahkan")
           else:
               print("Login UI sudah tersedia")
@@ -429,3 +464,4 @@ jobs:
           name: RumaGo-APK
           path: RumaGo_Android_Project/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          
