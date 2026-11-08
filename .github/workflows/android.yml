@@ -36,21 +36,23 @@ jobs:
       - name: Extract project
         run: unzip -o RumaGo_Android_Project.zip
 
+      
       - name: Fix Java and Kotlin Version
         run: |
           cat >> RumaGo_Android_Project/app/build.gradle <<'EOF'
 
-          tasks.withType(JavaCompile).configureEach {
-              sourceCompatibility = "17"
-              targetCompatibility = "17"
-          }
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
 
-          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
               kotlinOptions {
-                  jvmTarget = "17"
+                  jvmTarget = '17'
               }
           }
           EOF
+
 
       - name: Build APK
         run: |
