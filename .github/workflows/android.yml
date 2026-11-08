@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - 'RumaGo_Android_Project.zip'
+      - 'google-services.json'
       - '.github/workflows/android.yml'
 
 jobs:
@@ -27,7 +28,7 @@ jobs:
         with:
           accept-android-sdk-licenses: false
           packages: ''
-        
+
       - name: Install Android SDK Packages
         run: |
           yes | sdkmanager --licenses
@@ -36,7 +37,11 @@ jobs:
       - name: Extract project
         run: unzip -o RumaGo_Android_Project.zip
 
-      
+      - name: Add Firebase Config
+        run: |
+          mkdir -p RumaGo_Android_Project/app
+          cp google-services.json RumaGo_Android_Project/app/google-services.json
+
       - name: Fix Java and Kotlin Version
         run: |
           cat >> RumaGo_Android_Project/app/build.gradle <<'EOF'
@@ -53,7 +58,6 @@ jobs:
           }
           EOF
 
-
       - name: Build APK
         run: |
           cd RumaGo_Android_Project
@@ -65,4 +69,3 @@ jobs:
           name: RumaGo-APK
           path: RumaGo_Android_Project/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          
