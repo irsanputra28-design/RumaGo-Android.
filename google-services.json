@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "7165099708",
+    "project_id": "rumago-a184f",
+    "storage_bucket": "rumago-a184f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:7165099708:android:f187173e073030129a1ab9",
+        "android_client_info": {
+          "package_name": "id.rumago.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACon9qlaUS_93Gs2yolkz6UAO7vGeV_uY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
