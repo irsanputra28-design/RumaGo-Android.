@@ -4,112 +4,86 @@ name: Build RumaGo APK
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'RumaGo_Android_Project.zip'
-      - 'google-services.json'
-      - '.github/workflows/android.yml'
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: 17
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
 
-      - name: Install Android SDK Packages
-        shell: bash
+      - name: Install Android SDK
         run: |
-          set -e
-
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-
-          if [ ! -f "$SDKMANAGER" ]; then
-            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
-              -type f -name sdkmanager | sort -V | tail -n 1)
-          fi
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager tidak ditemukan"
-            exit 1
-          fi
-
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses || true
-
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Extract RumaGo Project
+      - name: Extract project ZIP
         run: |
           set -e
           unzip -o RumaGo_Android_Project.zip
+          test -f RumaGo_Android_Project/build.gradle
 
-      - name: Configure Firebase
-        shell: bash
+      - name: Fix Kotlin and Firebase configuration
         run: |
           set -e
+          cd RumaGo_Android_Project
 
           python3 - <<'PY'
           from pathlib import Path
           import re
 
-          root = Path("RumaGo_Android_Project")
-          project_file = root / "build.gradle"
-          app_file = root / "app/build.gradle"
-          config = Path("google-services.json")
+          p = Path("build.gradle")
+          s = p.read_text()
 
-          if not project_file.exists():
-              raise SystemExit("build.gradle utama tidak ditemukan")
+          s = re.sub(
+              r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])",
+              r"\g<1>2.4.0\2",
+              s
+          )
 
-          if not app_file.exists():
-              raise SystemExit("app/build.gradle tidak ditemukan")
+          p.write_text(s)
+          print("Versi Kotlin utama diperbarui.")
 
-          if not config.exists():
-              raise SystemExit("google-services.json tidak ditemukan")
+          p = Path("app/build.gradle")
+          s = p.read_text()
+          s = re.sub(r'minSdk\s*(?:=\s*)?23', 'minSdk 24', s)
+          p.write_text(s)
+          print("Konfigurasi minSdk diperbarui.")
+          PY
 
-          project = project_file.read_text()
+      - name: Configure Firebase
+        run: |
+          set -e
+          cd RumaGo_Android_Project
+          python3 - <<'PY'
+          from pathlib import Path
 
-          if "com.google.gms.google-services" not in project:
-              project = re.sub(
-                  r'plugins\s*\{',
-                  lambda m: m.group(0) + "\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
-                  project,
-                  count=1
+          p = Path("app/build.gradle")
+          s = p.read_text()
+
+          if "com.google.gms.google-services" not in s:
+              s = s.replace(
+                  "plugins {",
+                  "plugins {\n    id 'com.google.gms.google-services'",
+                  1
               )
 
-          project_file.write_text(project)
-
-          app = app_file.read_text()
-
-          if "com.google.gms.google-services" not in app:
-              app = re.sub(
-                  r"id\s+['\"]org.jetbrains.kotlin.android['\"]",
-                  lambda m: m.group(0) + "\n    id 'com.google.gms.google-services'",
-                  app,
-                  count=1
-              )
-
-          if not re.search(r'minSdk\s*(?:=\s*)?24', app):
-              app = re.sub(
-                  r'minSdk\s*(?:=\s*)?23',
-                  'minSdk 24',
-                  app
-              )
-
-          if "firebase-bom" not in app:
-              app += """
+          if "firebase-bom" not in s:
+              s += """
 
           dependencies {
               implementation platform('com.google.firebase:firebase-bom:35.1.0')
@@ -118,67 +92,19 @@ jobs:
           }
           """
 
-          if "compileOptions" not in app:
-              app += """
-
-          android {
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-          }
-          """
-
-          app_file.write_text(app)
-
-          destination = root / "app/google-services.json"
-          destination.parent.mkdir(parents=True, exist_ok=True)
-          destination.write_text(config.read_text())
-
-          print("Konfigurasi Firebase selesai")
+          p.write_text(s)
+          print("Firebase Auth dan Firestore dikonfigurasi.")
           PY
 
-      - name: Check Android Manifest
+      - name: Build APK
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          manifest = Path(
-              "RumaGo_Android_Project/app/src/main/AndroidManifest.xml"
-          )
-
-          if not manifest.exists():
-              raise SystemExit("AndroidManifest.xml tidak ditemukan")
-
-          content = manifest.read_text()
-          permission = 'android.permission.INTERNET'
-
-          if permission not in content:
-              pos = content.find('>') + 1
-              content = (
-                  content[:pos]
-                  + '\n    <uses-permission android:name="' + permission + '"/>'
-                  + content[pos:]
-              )
-
-          manifest.write_text(content)
-          print("Manifest siap")
-          PY
-
-      - name: Build RumaGo APK
-        run: |
-          set -e
           cd RumaGo_Android_Project
-          gradle assembleDebug --no-daemon
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Upload RumaGo APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: RumaGo-APK
-          path: RumaGo_Android_Project/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          path: RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
           
