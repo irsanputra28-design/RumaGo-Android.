@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -25,53 +25,57 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: false
-          packages: ''
 
-      - name: Install Android SDK Packages
+      - name: Install Android SDK
         run: |
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Extract project
-        run: unzip -o RumaGo_Android_Project.zip
+      - name: Extract RumaGo Project
+        run: |
+          unzip -o RumaGo_Android_Project.zip
 
-      - name: Configure Firebase SDK
+      - name: Configure Firebase
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           root = Path("RumaGo_Android_Project")
-          project = root / "build.gradle"
-          app = root / "app/build.gradle"
+          project_file = root / "build.gradle"
+          app_file = root / "app/build.gradle"
 
-          p = project.read_text()
-          p = p.replace("version '2.0.21'", "version '2.4.21'")
+          if not project_file.exists():
+              raise SystemExit("File build.gradle utama tidak ditemukan")
 
-          marker = "    id 'org.jetbrains.kotlin.android' version '2.4.21' apply false"
+          if not app_file.exists():
+              raise SystemExit("File app/build.gradle tidak ditemukan")
 
-          if "com.google.gms.google-services" not in p:
-              p = p.replace(
-                  marker,
-                  marker + "\n    id 'com.google.gms.google-services' version '4.5.0' apply false"
+          project = project_file.read_text()
+
+          if "com.google.gms.google-services" not in project:
+              project = re.sub(
+                  r'(plugins\s*\{)',
+                  r"\1\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
+                  project,
+                  count=1
               )
 
-          project.write_text(p)
+          project_file.write_text(project)
 
-          a = app.read_text()
-          a = a.replace("minSdk 23", "minSdk 24")
+          app = app_file.read_text()
 
-          marker = "    id 'org.jetbrains.kotlin.android'"
-
-          if "com.google.gms.google-services" not in a:
-              a = a.replace(
-                  marker,
-                  marker + "\n    id 'com.google.gms.google-services'"
+          if "com.google.gms.google-services" not in app:
+              app = re.sub(
+                  r"(id ['\"]org.jetbrains.kotlin.android['\"])",
+                  r"\1\n    id 'com.google.gms.google-services'",
+                  app,
+                  count=1
               )
 
-          if "firebase-bom" not in a:
-              a += """
+          if "firebase-bom" not in app:
+              app += """
+
           dependencies {
               implementation platform('com.google.firebase:firebase-bom:35.1.0')
               implementation 'com.google.firebase:firebase-auth'
@@ -79,498 +83,76 @@ jobs:
           }
           """
 
-          app.write_text(a)
+          if "compileOptions" not in app:
+              app += """
 
-          Path("RumaGo_Android_Project/app/google-services.json").write_text(
-              Path("google-services.json").read_text()
-          )
-
-          print("Firebase SDK berhasil dikonfigurasi")
-          PY
-
-      - name: Configure RumaGo MainActivity
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          file = Path("RumaGo_Android_Project/app/src/main/java/id/rumago/app/MainActivity.kt")
-          file.parent.mkdir(parents=True, exist_ok=True)
-
-          code = r'''package id.rumago.app
-
-          import android.app.Activity
-          import android.os.Bundle
-          import android.webkit.WebView
-          import android.webkit.WebViewClient
-          import android.webkit.WebChromeClient
-          import android.webkit.JavascriptInterface
-          import android.view.ViewGroup
-          import android.graphics.Color
-          import com.google.firebase.auth.FirebaseAuth
-          import com.google.firebase.auth.FirebaseAuthException
-          import com.google.firebase.firestore.FirebaseFirestore
-          import org.json.JSONObject
-
-          class MainActivity : Activity() {
-
-              private lateinit var webView: WebView
-
-              private val auth: FirebaseAuth by lazy {
-                  FirebaseAuth.getInstance()
-              }
-
-              private fun sendToPage(function: String, data: JSONObject) {
-                  val json = data.toString()
-
-                  runOnUiThread {
-                      webView.evaluateJavascript(
-                          "window.$function && window.$function($json)",
-                          null
-                      )
-                  }
-              }
-
-              inner class AuthBridge {
-
-                  @JavascriptInterface
-                  fun register(email: String, password: String) {
-                      auth.createUserWithEmailAndPassword(email, password)
-                          .addOnCompleteListener { task ->
-                              val result = JSONObject()
-                              result.put("ok", task.isSuccessful)
-                              result.put("uid", auth.currentUser?.uid ?: "")
-                              result.put("email", auth.currentUser?.email ?: "")
-                              result.put(
-                                  "code",
-                                  (task.exception as? FirebaseAuthException)?.errorCode ?: ""
-                              )
-                              result.put(
-                                  "message",
-                                  if (task.isSuccessful) "Pendaftaran berhasil"
-                                  else task.exception?.localizedMessage ?: "Pendaftaran gagal"
-                              )
-
-                              sendToPage("onRumaGoAuthResult", result)
-                          }
-                  }
-
-                  @JavascriptInterface
-                  fun login(email: String, password: String) {
-                      auth.signInWithEmailAndPassword(email, password)
-                          .addOnCompleteListener { task ->
-                              val result = JSONObject()
-                              result.put("ok", task.isSuccessful)
-                              result.put("uid", auth.currentUser?.uid ?: "")
-                              result.put("email", auth.currentUser?.email ?: "")
-
-                              val exception = task.exception
-
-                              result.put(
-                                  "code",
-                                  (exception as? FirebaseAuthException)?.errorCode ?: "UNKNOWN_ERROR"
-                              )
-
-                              result.put(
-                                  "message",
-                                  if (task.isSuccessful) "Login berhasil"
-                                  else exception?.localizedMessage ?: "Login gagal"
-                              )
-
-                              sendToPage("onRumaGoAuthResult", result)
-                          }
-                  }
-
-                  @JavascriptInterface
-                  fun logout() {
-                      auth.signOut()
-
-                      val result = JSONObject()
-                      result.put("ok", true)
-                      result.put("message", "Berhasil keluar")
-
-                      sendToPage("onRumaGoAuthResult", result)
-                  }
-
-                  @JavascriptInterface
-                  fun getRole() {
-                      val user = auth.currentUser
-
-                      if (user == null) {
-                          val result = JSONObject()
-                          result.put("ok", false)
-                          result.put("message", "Silakan login kembali")
-                          sendToPage("onRumaGoRoleResult", result)
-                          return
-                      }
-
-                      FirebaseFirestore.getInstance()
-                          .collection("users")
-                          .document(user.uid)
-                          .get()
-                          .addOnSuccessListener { document ->
-                              val result = JSONObject()
-
-                              if (!document.exists()) {
-                                  result.put("ok", false)
-                                  result.put("message", "Data akun tidak ditemukan di Firestore")
-                              } else {
-                                  result.put("ok", true)
-                                  result.put(
-                                      "role",
-                                      document.getString("role") ?: "customer"
-                                  )
-                              }
-
-                              sendToPage("onRumaGoRoleResult", result)
-                          }
-                          .addOnFailureListener { error ->
-                              val result = JSONObject()
-                              result.put("ok", false)
-                              result.put(
-                                  "message",
-                                  error.localizedMessage ?: "Gagal memeriksa hak akses"
-                              )
-
-                              sendToPage("onRumaGoRoleResult", result)
-                          }
-                  }
-
-                  @JavascriptInterface
-                  fun getCurrentUser() {
-                      val user = auth.currentUser
-
-                      val result = JSONObject()
-                      result.put("loggedIn", user != null)
-                      result.put("uid", user?.uid ?: "")
-                      result.put("email", user?.email ?: "")
-
-                      sendToPage("onRumaGoAuthState", result)
-                  }
-              }
-
-              @Suppress("SetJavaScriptEnabled")
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-
-                  window.statusBarColor = Color.rgb(13, 104, 69)
-                  window.navigationBarColor = Color.WHITE
-
-                  window.decorView.systemUiVisibility =
-                      android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-
-                  webView = WebView(this)
-
-                  webView.layoutParams = ViewGroup.LayoutParams(
-                      ViewGroup.LayoutParams.MATCH_PARENT,
-                      ViewGroup.LayoutParams.MATCH_PARENT
-                  )
-
-                  webView.settings.javaScriptEnabled = true
-                  webView.settings.domStorageEnabled = true
-                  webView.settings.allowFileAccess = true
-
-                  webView.addJavascriptInterface(AuthBridge(), "RumaGoAuth")
-
-                  webView.webViewClient = object : WebViewClient() {
-                      override fun onPageFinished(view: WebView?, url: String?) {
-                          super.onPageFinished(view, url)
-                          AuthBridge().getCurrentUser()
-                      }
-                  }
-
-                  webView.webChromeClient = WebChromeClient()
-
-                  setContentView(webView)
-
-                  if (savedInstanceState == null) {
-                      webView.loadUrl("file:///android_asset/index.html")
-                  } else {
-                      webView.restoreState(savedInstanceState)
-                  }
-              }
-
-              override fun onSaveInstanceState(outState: Bundle) {
-                  webView.saveState(outState)
-                  super.onSaveInstanceState(outState)
-              }
-
-              @Deprecated("Deprecated in Java")
-              override fun onBackPressed() {
-                  if (webView.canGoBack()) {
-                      webView.goBack()
-                  } else {
-                      super.onBackPressed()
-                  }
-              }
-          }
-          '''
-
-          file.write_text(code + "\n")
-          print("MainActivity berhasil diperbarui")
-          PY
-
-      - name: Configure RumaGo Login and Role Dashboard
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          file = Path("RumaGo_Android_Project/app/src/main/assets/index.html")
-          html = file.read_text()
-
-          # Hapus script login lama yang sebelumnya memakai marker lama
-          html = re.sub(
-              r'<script\b[^>]*>[\s\S]*?RUMAGO_FIREBASE_LOGIN_UI[\s\S]*?</script>',
-              '',
-              html,
-              flags=re.IGNORECASE
-          )
-
-          script = r"""
-          <script>
-          // RUMAGO_FIREBASE_LOGIN_UI_V2
-          (function () {
-            let rgUser = null;
-            let rgRole = "customer";
-            let rgRoleError = "";
-
-            function renderAuthPanel(force) {
-              const app = document.getElementById("app");
-              if (!app) return;
-
-              const heading = app.querySelector("h2");
-              if (!heading) return;
-
-              const title = heading.textContent.trim();
-
-              if (title !== "Akun Saya" && title !== "RumaGo Admin") {
-                return;
-              }
-
-              if (!force && document.getElementById("rgAuthPanel")) {
-                return;
-              }
-
-              if (rgUser && rgRole === "admin") {
-                app.innerHTML = `
-                  <h2>RumaGo Admin</h2>
-                  <div class="panel" id="rgAuthPanel">
-                    <h3>Dashboard Admin</h3>
-                    <p>${rgUser.email || ""}</p>
-
-                    <div class="panel">
-                      <h3>Produk</h3>
-                      <p class="sub">Tambah dan kelola produk.</p>
-                    </div>
-
-                    <div class="panel">
-                      <h3>Stok</h3>
-                      <p class="sub">Atur persediaan produk.</p>
-                    </div>
-
-                    <div class="panel">
-                      <h3>Pesanan</h3>
-                      <p class="sub">Pantau pesanan.</p>
-                    </div>
-
-                    <div class="panel">
-                      <h3>Pelanggan</h3>
-                      <p class="sub">Kelola pelanggan.</p>
-                    </div>
-
-                    <button class="primary" onclick="rgLogout()">Keluar</button>
-                  </div>
-                `;
-                return;
-              }
-
-              app.innerHTML = `
-                <h2>Akun Saya</h2>
-                <div class="panel" id="rgAuthPanel">
-                  ${rgUser ? `
-                    <h3>Akun RumaGo</h3>
-                    <p>${rgUser.email || ""}</p>
-                    <p class="sub">Pelanggan</p>
-                    ${rgRoleError ? `
-                      <p class="sub">${rgRoleError}</p>
-                      <button class="primary" onclick="rgCheckRole()">Periksa Akses Lagi</button>
-                    ` : ""}
-                    <button class="primary" onclick="rgLogout()">Keluar</button>
-                  ` : `
-                    <h3>Login RumaGo</h3>
-                    <p class="sub">Belanja lebih mudah dengan akun RumaGo.</p>
-
-                    <label>Email</label>
-                    <input id="rgEmail" type="email" placeholder="Masukkan email">
-
-                    <label>Password</label>
-                    <input id="rgPassword" type="password" placeholder="Masukkan password">
-
-                    <button class="primary" onclick="rgLogin()">Login</button>
-                    <button class="primary" style="margin-top:8px" onclick="rgRegister()">Daftar Akun</button>
-
-                    <p id="rgMessage" class="sub" style="margin-top:12px"></p>
-                  `}
-                </div>
-              `;
-            }
-
-            window.rgLogin = function() {
-              const email = document.getElementById("rgEmail").value.trim();
-              const password = document.getElementById("rgPassword").value;
-              const message = document.getElementById("rgMessage");
-
-              if (!email || !password) {
-                message.textContent = "Email dan password wajib diisi.";
-                return;
-              }
-
-              message.textContent = "Memeriksa akun...";
-              RumaGoAuth.login(email, password);
-            };
-
-            window.rgRegister = function() {
-              const email = document.getElementById("rgEmail").value.trim();
-              const password = document.getElementById("rgPassword").value;
-              const message = document.getElementById("rgMessage");
-
-              if (!email || password.length < 6) {
-                message.textContent = "Isi email dan password minimal 6 karakter.";
-                return;
-              }
-
-              message.textContent = "Mendaftarkan akun...";
-              RumaGoAuth.register(email, password);
-            };
-
-            window.rgCheckRole = function() {
-              rgRoleError = "";
-              if (rgUser) {
-                RumaGoAuth.getRole();
-              }
-            };
-
-            window.rgLogout = function() {
-              const button = document.querySelector("#rgAuthPanel button");
-              if (button) button.disabled = true;
-              RumaGoAuth.logout();
-            };
-
-            window.onRumaGoAuthResult = function(result) {
-              if (result.ok && result.uid) {
-                rgUser = {
-                  uid: result.uid,
-                  email: result.email || ""
-                };
-
-                rgRole = "customer";
-                rgRoleError = "";
-
-                renderAuthPanel(true);
-                RumaGoAuth.getRole();
-
-                if (result.message) alert(result.message);
-                return;
-              }
-
-              if (result.ok) {
-                rgUser = null;
-                rgRole = "customer";
-                rgRoleError = "";
-                renderAuthPanel(true);
-                return;
-              }
-
-              const target = document.getElementById("rgMessage");
-
-              if (target) {
-                target.textContent = result.message || "Login gagal.";
-              } else {
-                alert(result.message || "Login gagal.");
-              }
-
-              const button = document.querySelector("#rgAuthPanel button");
-              if (button) button.disabled = false;
-            };
-
-            window.onRumaGoRoleResult = function(result) {
-              if (!result || !result.ok) {
-                rgRole = "customer";
-                rgRoleError = result && result.message
-                  ? "Gagal memeriksa akses: " + result.message
-                  : "Akses akun belum dapat diperiksa.";
-
-                renderAuthPanel(true);
-                return;
-              }
-
-              rgRoleError = "";
-              rgRole = result.role === "admin" ? "admin" : "customer";
-
-              renderAuthPanel(true);
-            };
-
-            window.onRumaGoAuthState = function(result) {
-              rgUser = result.loggedIn ? {
-                uid: result.uid,
-                email: result.email || ""
-              } : null;
-
-              rgRole = "customer";
-              rgRoleError = "";
-
-              renderAuthPanel(true);
-
-              if (rgUser) {
-                RumaGoAuth.getRole();
-              }
-            };
-
-            const app = document.getElementById("app");
-
-            if (app) {
-              new MutationObserver(function() {
-                renderAuthPanel(false);
-              }).observe(app, {
-                childList: true,
-                subtree: true
-              });
-
-              renderAuthPanel(false);
-            }
-          })();
-          </script>
-          """
-
-          if "</body>" not in html:
-              raise SystemExit("Tag body tidak ditemukan")
-
-          html = html.replace("</body>", script + "\n</body>")
-          file.write_text(html)
-
-          print("Dashboard Admin RumaGo V2 berhasil dipasang")
-          PY
-
-      - name: Fix Java and Kotlin Version
-        run: |
-          cat >> RumaGo_Android_Project/app/build.gradle <<'EOF'
           android {
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
+
               kotlinOptions {
                   jvmTarget = '17'
               }
           }
-          EOF
+          """
 
-      - name: Build APK
+          app_file.write_text(app)
+
+          config = Path("google-services.json")
+
+          if not config.exists():
+              raise SystemExit("google-services.json tidak ditemukan")
+
+          (root / "app/google-services.json").write_text(
+              config.read_text()
+          )
+
+          print("Konfigurasi Firebase selesai")
+          PY
+
+      - name: Check Android Manifest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest = Path(
+              "RumaGo_Android_Project/app/src/main/AndroidManifest.xml"
+          )
+
+          if not manifest.exists():
+              raise SystemExit("AndroidManifest.xml tidak ditemukan")
+
+          content = manifest.read_text()
+
+          permission = 'android.permission.INTERNET'
+
+          if permission not in content:
+              content = content.replace(
+                  '<manifest',
+                  '<manifest',
+                  1
+              )
+
+              pos = content.find('>') + 1
+
+              content = (
+                  content[:pos]
+                  + '\n    <uses-permission android:name="' + permission + '"/>'
+                  + content[pos:]
+              )
+
+          manifest.write_text(content)
+          print("Pemeriksaan Manifest selesai")
+          PY
+
+      - name: Build RumaGo APK
         run: |
           cd RumaGo_Android_Project
-          gradle assembleDebug
+          gradle assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Upload RumaGo APK
         uses: actions/upload-artifact@v4
         with:
           name: RumaGo-APK
