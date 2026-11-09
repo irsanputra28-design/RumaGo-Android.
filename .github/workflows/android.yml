@@ -35,10 +35,9 @@ jobs:
         run: |
           set -e
           unzip -o RumaGo_Android_Project.zip
-          test -f RumaGo_Android_Project/build.gradle
-          test -f RumaGo_Android_Project/settings.gradle
+          cd RumaGo_Android_Project
 
-      - name: Fix Kotlin and Android configuration
+      - name: Configure Gradle and Firebase
         run: |
           set -e
           cd RumaGo_Android_Project
@@ -47,6 +46,7 @@ jobs:
           from pathlib import Path
           import re
 
+          # Register plugin versions in root build.gradle
           p = Path("build.gradle")
           s = p.read_text()
 
@@ -55,10 +55,27 @@ jobs:
               r"\g<1>2.4.0\2",
               s
           )
+
+          if "com.google.gms.google-services" not in s:
+              s = s.rstrip() + """
+
+          plugins {
+              id 'com.google.gms.google-services' version '4.4.2' apply false
+          }
+          """
+          elif "com.google.gms.google-services' version" not in s and 'com.google.gms.google-services" version' not in s:
+              s = s.replace(
+                  "id 'com.google.gms.google-services'",
+                  "id 'com.google.gms.google-services' version '4.4.2'",
+                  1
+              )
+
           p.write_text(s)
 
+          # Configure app module
           p = Path("app/build.gradle")
           s = p.read_text()
+
           s = re.sub(r'minSdk\s*(?:=\s*)?23', 'minSdk 24', s)
 
           if "com.google.gms.google-services" not in s:
@@ -79,6 +96,20 @@ jobs:
           """
 
           p.write_text(s)
+
+          # Ensure Google plugin repository exists
+          p = Path("settings.gradle")
+          s = p.read_text()
+
+          if "google()" not in s:
+              s = s.replace(
+                  "repositories {",
+                  "repositories {\n        google()",
+                  1
+              )
+
+          p.write_text(s)
+          print("Konfigurasi Gradle dan Firebase selesai.")
           PY
 
       - name: Create Gradle Wrapper if missing
