@@ -18,25 +18,54 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
       - name: Install Android SDK
+        shell: bash
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          set -e
+
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+            -type f -name sdkmanager | sort -V | tail -n 1)
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager tidak ditemukan"
+            exit 1
+          fi
+
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses \
+            >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Extract RumaGo Project
         run: |
+          set -e
+
+          if [ ! -f RumaGo_Android_Project.zip ]; then
+            echo "ERROR: ZIP proyek tidak ditemukan"
+            exit 1
+          fi
+
           unzip -o RumaGo_Android_Project.zip
 
       - name: Configure Firebase
+        shell: bash
         run: |
+          set -e
+
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -44,19 +73,27 @@ jobs:
           root = Path("RumaGo_Android_Project")
           project_file = root / "build.gradle"
           app_file = root / "app/build.gradle"
+          config = Path("google-services.json")
 
           if not project_file.exists():
-              raise SystemExit("File build.gradle utama tidak ditemukan")
+              raise SystemExit("ERROR: build.gradle utama tidak ditemukan")
 
           if not app_file.exists():
-              raise SystemExit("File app/build.gradle tidak ditemukan")
+              raise SystemExit("ERROR: app/build.gradle tidak ditemukan")
+
+          if not config.exists():
+              raise SystemExit("ERROR: google-services.json tidak ditemukan")
 
           project = project_file.read_text()
 
           if "com.google.gms.google-services" not in project:
+              pattern = r'plugins\s*\{'
+              if not re.search(pattern, project):
+                  raise SystemExit("ERROR: blok plugins tidak ditemukan di build.gradle utama")
+
               project = re.sub(
-                  r'(plugins\s*\{)',
-                  r"\1\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
+                  pattern,
+                  lambda m: m.group(0) + "\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
                   project,
                   count=1
               )
@@ -66,22 +103,27 @@ jobs:
           app = app_file.read_text()
 
           if "com.google.gms.google-services" not in app:
+              pattern = r"id\s+['\"]org.jetbrains.kotlin.android['\"]"
+              if not re.search(pattern, app):
+                  raise SystemExit("ERROR: plugin Kotlin tidak ditemukan di app/build.gradle")
+
               app = re.sub(
-                  r"(id ['\"]org.jetbrains.kotlin.android['\"])",
-                  r"\1\n    id 'com.google.gms.google-services'",
+                  pattern,
+                  lambda m: m.group(0) + "\n    id 'com.google.gms.google-services'",
                   app,
                   count=1
               )
 
-          if "firebase-bom" not in app:
-              app += """
-
+          firebase_dependencies = """
           dependencies {
               implementation platform('com.google.firebase:firebase-bom:35.1.0')
               implementation 'com.google.firebase:firebase-auth'
               implementation 'com.google.firebase:firebase-firestore'
           }
           """
+
+          if "firebase-bom" not in app:
+              app += "\n" + firebase_dependencies
 
           if "compileOptions" not in app:
               app += """
@@ -100,20 +142,18 @@ jobs:
 
           app_file.write_text(app)
 
-          config = Path("google-services.json")
-
-          if not config.exists():
-              raise SystemExit("google-services.json tidak ditemukan")
-
-          (root / "app/google-services.json").write_text(
-              config.read_text()
-          )
+          destination = root / "app/google-services.json"
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          destination.write_text(config.read_text())
 
           print("Konfigurasi Firebase selesai")
           PY
 
       - name: Check Android Manifest
+        shell: bash
         run: |
+          set -e
+
           python3 - <<'PY'
           from pathlib import Path
 
@@ -122,20 +162,16 @@ jobs:
           )
 
           if not manifest.exists():
-              raise SystemExit("AndroidManifest.xml tidak ditemukan")
+              raise SystemExit("ERROR: AndroidManifest.xml tidak ditemukan")
 
           content = manifest.read_text()
 
           permission = 'android.permission.INTERNET'
 
           if permission not in content:
-              content = content.replace(
-                  '<manifest',
-                  '<manifest',
-                  1
-              )
-
               pos = content.find('>') + 1
+              if pos == 0:
+                  raise SystemExit("ERROR: Format AndroidManifest.xml tidak valid")
 
               content = (
                   content[:pos]
@@ -144,11 +180,13 @@ jobs:
               )
 
           manifest.write_text(content)
-          print("Pemeriksaan Manifest selesai")
+          print("Manifest siap")
           PY
 
       - name: Build RumaGo APK
+        shell: bash
         run: |
+          set -e
           cd RumaGo_Android_Project
           gradle assembleDebug --no-daemon
 
