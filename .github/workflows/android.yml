@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup JDK 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -26,18 +26,35 @@ jobs:
 
       - name: Install Android SDK
         run: |
+          set -e
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Extract project ZIP
+      - name: Extract RumaGo Project
         run: |
           set -e
           unzip -o RumaGo_Android_Project.zip
-          cd RumaGo_Android_Project
+          test -f RumaGo_Android_Project/build.gradle
+          test -f RumaGo_Android_Project/settings.gradle
+          test -f RumaGo_Android_Project/app/build.gradle
 
-      - name: Configure Gradle and Firebase
+      - name: Copy Firebase Configuration
+        run: |
+          set -e
+
+          if [ ! -f google-services.json ]; then
+            echo "ERROR: google-services.json tidak ditemukan di repository utama."
+            exit 1
+          fi
+
+          mkdir -p RumaGo_Android_Project/app
+          cp google-services.json RumaGo_Android_Project/app/google-services.json
+
+          echo "Firebase configuration berhasil disalin."
+
+      - name: Configure Kotlin and Firebase
         run: |
           set -e
           cd RumaGo_Android_Project
@@ -46,44 +63,48 @@ jobs:
           from pathlib import Path
           import re
 
-          # Register plugin versions in root build.gradle
+          # Konfigurasi build.gradle utama
           p = Path("build.gradle")
           s = p.read_text()
 
-          s = re.sub(
-              r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])",
-              r"\g<1>2.4.0\2",
-              s
-          )
+          pattern = r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])"
+          s, count = re.subn(pattern, r"\g<1>2.4.0\2", s)
 
-          if "com.google.gms.google-services" not in s:
-              s = s.rstrip() + """
+          if count == 0:
+              raise SystemExit("Versi plugin Kotlin tidak ditemukan di build.gradle utama.")
 
-          plugins {
-              id 'com.google.gms.google-services' version '4.4.2' apply false
-          }
-          """
-          elif "com.google.gms.google-services' version" not in s and 'com.google.gms.google-services" version' not in s:
-              s = s.replace(
-                  "id 'com.google.gms.google-services'",
-                  "id 'com.google.gms.google-services' version '4.4.2'",
-                  1
+          google_plugin = "com.google.gms.google-services"
+
+          if google_plugin not in s:
+              match = re.search(r"plugins\s*\{", s)
+              if not match:
+                  raise SystemExit("Blok plugins tidak ditemukan di build.gradle utama.")
+
+              pos = match.end()
+              s = s[:pos] + "\n    id 'com.google.gms.google-services' version '4.4.2' apply false" + s[pos:]
+          elif not re.search(r"com\.google\.gms\.google-services['\"]\s+version", s):
+              s = re.sub(
+                  r"(id\s+['\"]com\.google\.gms\.google-services['\"])",
+                  r"\1 version '4.4.2' apply false",
+                  s,
+                  count=1
               )
 
           p.write_text(s)
 
-          # Configure app module
+          # Konfigurasi app/build.gradle
           p = Path("app/build.gradle")
           s = p.read_text()
 
           s = re.sub(r'minSdk\s*(?:=\s*)?23', 'minSdk 24', s)
 
           if "com.google.gms.google-services" not in s:
-              s = s.replace(
-                  "plugins {",
-                  "plugins {\n    id 'com.google.gms.google-services'",
-                  1
-              )
+              match = re.search(r"plugins\s*\{", s)
+              if not match:
+                  raise SystemExit("Blok plugins tidak ditemukan di app/build.gradle.")
+
+              pos = match.end()
+              s = s[:pos] + "\n    id 'com.google.gms.google-services'" + s[pos:]
 
           if "firebase-bom" not in s:
               s += """
@@ -97,37 +118,62 @@ jobs:
 
           p.write_text(s)
 
-          # Ensure Google plugin repository exists
+          # Pastikan repository plugin tersedia
           p = Path("settings.gradle")
           s = p.read_text()
 
-          if "google()" not in s:
-              s = s.replace(
-                  "repositories {",
-                  "repositories {\n        google()",
-                  1
+          if "pluginManagement" not in s:
+              s = """pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          """ + s
+          elif "google()" not in s.split("}", 1)[0]:
+              s = re.sub(
+                  r"(pluginManagement\s*\{\s*repositories\s*\{)",
+                  r"\1\n        google()",
+                  s,
+                  count=1
               )
 
           p.write_text(s)
-          print("Konfigurasi Gradle dan Firebase selesai.")
+
+          print("Konfigurasi Kotlin, Android, dan Firebase selesai.")
           PY
 
-      - name: Create Gradle Wrapper if missing
+      - name: Verify Firebase Files
         run: |
+          set -e
+          test -f RumaGo_Android_Project/app/google-services.json
+          echo "File Firebase ditemukan."
+          echo "Memeriksa package aplikasi:"
+          grep -n "applicationId" RumaGo_Android_Project/app/build.gradle
+
+      - name: Create Gradle Wrapper
+        run: |
+          set -e
           cd RumaGo_Android_Project
+
           if [ ! -f gradlew ]; then
             gradle wrapper --gradle-version 8.9
           fi
+
           chmod +x gradlew
 
-      - name: Build APK
+      - name: Build RumaGo APK
         run: |
+          set -e
           cd RumaGo_Android_Project
           ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Upload RumaGo APK
         uses: actions/upload-artifact@v4
         with:
           name: RumaGo-APK
           path: RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           
