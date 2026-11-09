@@ -28,18 +28,35 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK Packages
+      - name: Install Android SDK Packages
+        shell: bash
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          set -e
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+              -type f -name sdkmanager | sort -V | tail -n 1)
+          fi
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager tidak ditemukan"
+            exit 1
+          fi
+
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses || true
+
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Extract RumaGo Project
         run: |
+          set -e
           unzip -o RumaGo_Android_Project.zip
 
-      - name: Configure Firebase and Android
+      - name: Configure Firebase
         shell: bash
         run: |
           set -e
@@ -84,11 +101,12 @@ jobs:
                   count=1
               )
 
-          app = re.sub(
-              r'minSdk\s*(?:=\s*)?23',
-              'minSdk 24',
-              app
-          )
+          if not re.search(r'minSdk\s*(?:=\s*)?24', app):
+              app = re.sub(
+                  r'minSdk\s*(?:=\s*)?23',
+                  'minSdk 24',
+                  app
+              )
 
           if "firebase-bom" not in app:
               app += """
@@ -121,7 +139,7 @@ jobs:
           destination.parent.mkdir(parents=True, exist_ok=True)
           destination.write_text(config.read_text())
 
-          print("Firebase dan minSdk 24 berhasil dikonfigurasi")
+          print("Konfigurasi Firebase selesai")
           PY
 
       - name: Check Android Manifest
