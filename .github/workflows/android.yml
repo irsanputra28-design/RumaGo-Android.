@@ -29,39 +29,17 @@ jobs:
           gradle-version: '8.9'
 
       - name: Install Android SDK
-        shell: bash
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK Packages
         run: |
-          set -e
-
-          echo "ANDROID_HOME=$ANDROID_HOME"
-
-          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
-            -type f -name sdkmanager | sort -V | tail -n 1)
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager tidak ditemukan"
-            exit 1
-          fi
-
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses \
-            >/dev/null 2>&1 || true
-
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Extract RumaGo Project
         run: |
-          set -e
-
-          if [ ! -f RumaGo_Android_Project.zip ]; then
-            echo "ERROR: ZIP proyek tidak ditemukan"
-            exit 1
-          fi
-
           unzip -o RumaGo_Android_Project.zip
 
-      - name: Configure Firebase
+      - name: Configure Firebase and Android
         shell: bash
         run: |
           set -e
@@ -76,23 +54,19 @@ jobs:
           config = Path("google-services.json")
 
           if not project_file.exists():
-              raise SystemExit("ERROR: build.gradle utama tidak ditemukan")
+              raise SystemExit("build.gradle utama tidak ditemukan")
 
           if not app_file.exists():
-              raise SystemExit("ERROR: app/build.gradle tidak ditemukan")
+              raise SystemExit("app/build.gradle tidak ditemukan")
 
           if not config.exists():
-              raise SystemExit("ERROR: google-services.json tidak ditemukan")
+              raise SystemExit("google-services.json tidak ditemukan")
 
           project = project_file.read_text()
 
           if "com.google.gms.google-services" not in project:
-              pattern = r'plugins\s*\{'
-              if not re.search(pattern, project):
-                  raise SystemExit("ERROR: blok plugins tidak ditemukan di build.gradle utama")
-
               project = re.sub(
-                  pattern,
+                  r'plugins\s*\{',
                   lambda m: m.group(0) + "\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
                   project,
                   count=1
@@ -103,27 +77,28 @@ jobs:
           app = app_file.read_text()
 
           if "com.google.gms.google-services" not in app:
-              pattern = r"id\s+['\"]org.jetbrains.kotlin.android['\"]"
-              if not re.search(pattern, app):
-                  raise SystemExit("ERROR: plugin Kotlin tidak ditemukan di app/build.gradle")
-
               app = re.sub(
-                  pattern,
+                  r"id\s+['\"]org.jetbrains.kotlin.android['\"]",
                   lambda m: m.group(0) + "\n    id 'com.google.gms.google-services'",
                   app,
                   count=1
               )
 
-          firebase_dependencies = """
+          app = re.sub(
+              r'minSdk\s*(?:=\s*)?23',
+              'minSdk 24',
+              app
+          )
+
+          if "firebase-bom" not in app:
+              app += """
+
           dependencies {
               implementation platform('com.google.firebase:firebase-bom:35.1.0')
               implementation 'com.google.firebase:firebase-auth'
               implementation 'com.google.firebase:firebase-firestore'
           }
           """
-
-          if "firebase-bom" not in app:
-              app += "\n" + firebase_dependencies
 
           if "compileOptions" not in app:
               app += """
@@ -146,14 +121,11 @@ jobs:
           destination.parent.mkdir(parents=True, exist_ok=True)
           destination.write_text(config.read_text())
 
-          print("Konfigurasi Firebase selesai")
+          print("Firebase dan minSdk 24 berhasil dikonfigurasi")
           PY
 
       - name: Check Android Manifest
-        shell: bash
         run: |
-          set -e
-
           python3 - <<'PY'
           from pathlib import Path
 
@@ -162,17 +134,13 @@ jobs:
           )
 
           if not manifest.exists():
-              raise SystemExit("ERROR: AndroidManifest.xml tidak ditemukan")
+              raise SystemExit("AndroidManifest.xml tidak ditemukan")
 
           content = manifest.read_text()
-
           permission = 'android.permission.INTERNET'
 
           if permission not in content:
               pos = content.find('>') + 1
-              if pos == 0:
-                  raise SystemExit("ERROR: Format AndroidManifest.xml tidak valid")
-
               content = (
                   content[:pos]
                   + '\n    <uses-permission android:name="' + permission + '"/>'
@@ -184,7 +152,6 @@ jobs:
           PY
 
       - name: Build RumaGo APK
-        shell: bash
         run: |
           set -e
           cd RumaGo_Android_Project
