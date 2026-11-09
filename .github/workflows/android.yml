@@ -36,25 +36,16 @@ jobs:
         run: |
           set -e
           unzip -o RumaGo_Android_Project.zip
-          test -f RumaGo_Android_Project/build.gradle
-          test -f RumaGo_Android_Project/settings.gradle
           test -f RumaGo_Android_Project/app/build.gradle
 
       - name: Copy Firebase Configuration
         run: |
           set -e
-
-          if [ ! -f google-services.json ]; then
-            echo "ERROR: google-services.json tidak ditemukan di repository utama."
-            exit 1
-          fi
-
+          test -f google-services.json
           mkdir -p RumaGo_Android_Project/app
           cp google-services.json RumaGo_Android_Project/app/google-services.json
 
-          echo "Firebase configuration berhasil disalin."
-
-      - name: Configure Kotlin and Firebase
+      - name: Configure Gradle and Firebase
         run: |
           set -e
           cd RumaGo_Android_Project
@@ -63,25 +54,22 @@ jobs:
           from pathlib import Path
           import re
 
-          # Konfigurasi build.gradle utama
+          # Root Gradle
           p = Path("build.gradle")
           s = p.read_text()
 
-          pattern = r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])"
-          s, count = re.subn(pattern, r"\g<1>2.4.0\2", s)
+          s = re.sub(
+              r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])",
+              r"\g<1>2.4.0\2",
+              s
+          )
 
-          if count == 0:
-              raise SystemExit("Versi plugin Kotlin tidak ditemukan di build.gradle utama.")
-
-          google_plugin = "com.google.gms.google-services"
-
-          if google_plugin not in s:
-              match = re.search(r"plugins\s*\{", s)
-              if not match:
-                  raise SystemExit("Blok plugins tidak ditemukan di build.gradle utama.")
-
-              pos = match.end()
-              s = s[:pos] + "\n    id 'com.google.gms.google-services' version '4.4.2' apply false" + s[pos:]
+          if "com.google.gms.google-services" not in s:
+              s = s.replace(
+                  "plugins {",
+                  "plugins {\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
+                  1
+              )
           elif not re.search(r"com\.google\.gms\.google-services['\"]\s+version", s):
               s = re.sub(
                   r"(id\s+['\"]com\.google\.gms\.google-services['\"])",
@@ -92,19 +80,35 @@ jobs:
 
           p.write_text(s)
 
-          # Konfigurasi app/build.gradle
+          # App Gradle
           p = Path("app/build.gradle")
           s = p.read_text()
 
           s = re.sub(r'minSdk\s*(?:=\s*)?23', 'minSdk 24', s)
 
-          if "com.google.gms.google-services" not in s:
-              match = re.search(r"plugins\s*\{", s)
-              if not match:
-                  raise SystemExit("Blok plugins tidak ditemukan di app/build.gradle.")
+          # Samakan target Java dan Kotlin menjadi 17
+          if "compileOptions" not in s:
+              s = s.replace(
+                  "android {",
+                  """android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
 
-              pos = match.end()
-              s = s[:pos] + "\n    id 'com.google.gms.google-services'" + s[pos:]
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          """,
+                  1
+              )
+
+          if "com.google.gms.google-services" not in s:
+              s = s.replace(
+                  "plugins {",
+                  "plugins {\n    id 'com.google.gms.google-services'",
+                  1
+              )
 
           if "firebase-bom" not in s:
               s += """
@@ -118,7 +122,7 @@ jobs:
 
           p.write_text(s)
 
-          # Pastikan repository plugin tersedia
+          # Settings Gradle
           p = Path("settings.gradle")
           s = p.read_text()
 
@@ -132,36 +136,25 @@ jobs:
           }
 
           """ + s
-          elif "google()" not in s.split("}", 1)[0]:
-              s = re.sub(
-                  r"(pluginManagement\s*\{\s*repositories\s*\{)",
-                  r"\1\n        google()",
-                  s,
-                  count=1
-              )
 
           p.write_text(s)
 
-          print("Konfigurasi Kotlin, Android, dan Firebase selesai.")
+          print("Java 17, Kotlin 17, dan Firebase berhasil dikonfigurasi.")
           PY
 
-      - name: Verify Firebase Files
+      - name: Verify Configuration
         run: |
           set -e
           test -f RumaGo_Android_Project/app/google-services.json
-          echo "File Firebase ditemukan."
-          echo "Memeriksa package aplikasi:"
-          grep -n "applicationId" RumaGo_Android_Project/app/build.gradle
+          grep -n "VERSION_17\|jvmTarget" RumaGo_Android_Project/app/build.gradle
 
       - name: Create Gradle Wrapper
         run: |
           set -e
           cd RumaGo_Android_Project
-
           if [ ! -f gradlew ]; then
             gradle wrapper --gradle-version 8.9
           fi
-
           chmod +x gradlew
 
       - name: Build RumaGo APK
