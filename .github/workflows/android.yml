@@ -36,8 +36,9 @@ jobs:
           set -e
           unzip -o RumaGo_Android_Project.zip
           test -f RumaGo_Android_Project/build.gradle
+          test -f RumaGo_Android_Project/settings.gradle
 
-      - name: Fix Kotlin and Firebase configuration
+      - name: Fix Kotlin and Android configuration
         run: |
           set -e
           cd RumaGo_Android_Project
@@ -54,26 +55,11 @@ jobs:
               r"\g<1>2.4.0\2",
               s
           )
-
           p.write_text(s)
-          print("Versi Kotlin utama diperbarui.")
 
           p = Path("app/build.gradle")
           s = p.read_text()
           s = re.sub(r'minSdk\s*(?:=\s*)?23', 'minSdk 24', s)
-          p.write_text(s)
-          print("Konfigurasi minSdk diperbarui.")
-          PY
-
-      - name: Configure Firebase
-        run: |
-          set -e
-          cd RumaGo_Android_Project
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path("app/build.gradle")
-          s = p.read_text()
 
           if "com.google.gms.google-services" not in s:
               s = s.replace(
@@ -93,13 +79,19 @@ jobs:
           """
 
           p.write_text(s)
-          print("Firebase Auth dan Firestore dikonfigurasi.")
           PY
+
+      - name: Create Gradle Wrapper if missing
+        run: |
+          cd RumaGo_Android_Project
+          if [ ! -f gradlew ]; then
+            gradle wrapper --gradle-version 8.9
+          fi
+          chmod +x gradlew
 
       - name: Build APK
         run: |
           cd RumaGo_Android_Project
-          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
