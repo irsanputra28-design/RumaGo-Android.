@@ -45,7 +45,27 @@ jobs:
           mkdir -p RumaGo_Android_Project/app
           cp google-services.json RumaGo_Android_Project/app/google-services.json
 
-      - name: Configure Gradle and Firebase
+      - name: Prepare Permanent Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "Keystore secrets belum lengkap."
+            exit 1
+          fi
+
+          echo "$KEYSTORE_BASE64" | base64 --decode > rumago-release.jks
+          keytool -list \
+            -keystore rumago-release.jks \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias rumago
+
+          echo "Keystore berhasil diperiksa."
+
+      - name: Configure Gradle and Signing
         run: |
           set -e
           cd RumaGo_Android_Project
@@ -54,15 +74,14 @@ jobs:
           from pathlib import Path
           import re
 
-          # Root Gradle
           p = Path("build.gradle")
           s = p.read_text()
 
-          s = re.sub(
-              r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])",
-              r"\g<1>2.4.0\2",
-              s
-          )
+          pattern = r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])"
+          s, count = re.subn(pattern, r"\g<1>2.4.0\2", s)
+
+          if count == 0:
+              raise SystemExit("Plugin Kotlin tidak ditemukan.")
 
           if "com.google.gms.google-services" not in s:
               s = s.replace(
@@ -80,13 +99,11 @@ jobs:
 
           p.write_text(s)
 
-          # App Gradle
           p = Path("app/build.gradle")
           s = p.read_text()
 
           s = re.sub(r'minSdk\s*(?:=\s*)?23', 'minSdk 24', s)
 
-          # Samakan target Java dan Kotlin menjadi 17
           if "compileOptions" not in s:
               s = s.replace(
                   "android {",
@@ -95,7 +112,6 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-
               kotlinOptions {
                   jvmTarget = '17'
               }
@@ -110,6 +126,30 @@ jobs:
                   1
               )
 
+          signing = """
+              signingConfigs {
+                  release {
+                      storeFile file("../../rumago-release.jks")
+                      storePassword System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias "rumago"
+                      keyPassword System.getenv("KEYSTORE_PASSWORD")
+                  }
+              }
+
+              buildTypes {
+                  debug {
+                      signingConfig signingConfigs.release
+                  }
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }
+              }
+          """
+
+          if "signingConfigs" not in s:
+              s = s.replace("android {", "android {\n" + signing, 1)
+
           if "firebase-bom" not in s:
               s += """
 
@@ -122,7 +162,6 @@ jobs:
 
           p.write_text(s)
 
-          # Settings Gradle
           p = Path("settings.gradle")
           s = p.read_text()
 
@@ -139,16 +178,12 @@ jobs:
 
           p.write_text(s)
 
-          print("Java 17, Kotlin 17, dan Firebase berhasil dikonfigurasi.")
+          print("Konfigurasi signing dan Firebase selesai.")
           PY
 
-      - name: Verify Configuration
-        run: |
-          set -e
-          test -f RumaGo_Android_Project/app/google-services.json
-          grep -n "VERSION_17\|jvmTarget" RumaGo_Android_Project/app/build.gradle
-
-      - name: Create Gradle Wrapper
+      - name: Build Signed APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -e
           cd RumaGo_Android_Project
@@ -156,17 +191,14 @@ jobs:
             gradle wrapper --gradle-version 8.9
           fi
           chmod +x gradlew
+          ./gradlew assembleDebug assembleRelease --stacktrace
 
-      - name: Build RumaGo APK
-        run: |
-          set -e
-          cd RumaGo_Android_Project
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Upload RumaGo APK
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: RumaGo-APK
-          path: RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
+          name: RumaGo-Signed-APK
+          path: |
+            RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
+            RumaGo_Android_Project/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           
