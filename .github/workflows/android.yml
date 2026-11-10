@@ -12,41 +12,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Ambil source code dari GitHub
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Java 17
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # 3. Gradle
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # 4. Android SDK
       - name: Install Android SDK
         run: |
           set -e
+
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
+      # 5. Ekstrak project
       - name: Extract RumaGo Project
         run: |
           set -e
+
           test -f RumaGo_Android_Project.zip
+
           unzip -o RumaGo_Android_Project.zip
+
           test -f RumaGo_Android_Project/app/build.gradle
           test -f RumaGo_Android_Project/settings.gradle
 
+      # 6. Firebase configuration
       - name: Copy Firebase Configuration
         run: |
           set -e
-          test -f google-services.json
-          mkdir -p RumaGo_Android_Project/app
-          cp google-services.json RumaGo_Android_Project/app/google-services.json
 
+          test -f google-services.json
+
+          mkdir -p RumaGo_Android_Project/app
+
+          cp google-services.json \
+            RumaGo_Android_Project/app/google-services.json
+
+      # 7. Keystore permanen
       - name: Prepare Permanent Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -55,7 +71,7 @@ jobs:
           set -e
 
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "Keystore secrets belum lengkap."
+            echo "ERROR: Keystore secrets belum lengkap."
             exit 1
           fi
 
@@ -68,11 +84,13 @@ jobs:
             -storepass "$KEYSTORE_PASSWORD" \
             -alias rumago
 
-          echo "Keystore berhasil diperiksa."
+          echo "Keystore permanen berhasil diperiksa."
 
+      # 8. Konfigurasi Gradle
       - name: Configure Gradle and Firebase
         run: |
           set -e
+
           cd RumaGo_Android_Project
 
           python3 - <<'PY'
@@ -101,7 +119,7 @@ jobs:
 
               defaultConfig {
                   applicationId 'id.rumago.app'
-                  minSdk 23
+                  minSdk 24
                   targetSdk 35
                   versionCode 1
                   versionName '1.0.0'
@@ -144,12 +162,52 @@ jobs:
           }
           """)
 
-          print("Konfigurasi Gradle dan Firebase selesai.")
+          settings = Path("settings.gradle")
+
+          if not settings.exists():
+              settings.write_text("""pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = 'RumaGo_Android_Project'
+          include ':app'
+          """)
+          else:
+              content = settings.read_text()
+
+              if "pluginManagement" not in content:
+                  content = """pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          """ + content
+
+              settings.write_text(content)
+
+          print("Konfigurasi Gradle selesai.")
           PY
 
+      # 9. Buat Gradle Wrapper
       - name: Create Gradle Wrapper
         run: |
           set -e
+
           cd RumaGo_Android_Project
 
           gradle wrapper --gradle-version 8.9
@@ -157,17 +215,21 @@ jobs:
           chmod +x gradlew
 
           test -f gradlew
+
           echo "Gradle Wrapper berhasil dibuat."
 
+      # 10. Build APK
       - name: Build Signed APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -e
+
           cd RumaGo_Android_Project
 
           ./gradlew clean assembleDebug assembleRelease --stacktrace
 
+      # 11. Periksa hasil APK
       - name: Verify APK
         run: |
           set -e
@@ -176,8 +238,9 @@ jobs:
 
           test -s RumaGo_Android_Project/app/build/outputs/apk/release/app-release.apk
 
-          echo "APK berhasil dibuat."
+          echo "APK Debug dan Release berhasil dibuat."
 
+      # 12. Upload APK
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
@@ -186,4 +249,3 @@ jobs:
             RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
             RumaGo_Android_Project/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-          
