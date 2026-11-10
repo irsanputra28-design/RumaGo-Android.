@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Ambil source code dari GitHub
+      # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -38,7 +38,7 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      # 5. Ekstrak project
+      # 5. Extract project
       - name: Extract RumaGo Project
         run: |
           set -e
@@ -62,7 +62,7 @@ jobs:
           cp google-services.json \
             RumaGo_Android_Project/app/google-services.json
 
-      # 7. Keystore permanen
+      # 7. Permanent keystore
       - name: Prepare Permanent Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -84,9 +84,9 @@ jobs:
             -storepass "$KEYSTORE_PASSWORD" \
             -alias rumago
 
-          echo "Keystore permanen berhasil diperiksa."
+          echo "Keystore berhasil diperiksa."
 
-      # 8. Konfigurasi Gradle
+      # 8. Configure Gradle and Firebase
       - name: Configure Gradle and Firebase
         run: |
           set -e
@@ -96,15 +96,17 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          # Root Gradle
           root = Path("build.gradle")
 
           root.write_text("""plugins {
               id 'com.android.application' version '8.7.3' apply false
-              id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
+              id 'org.jetbrains.kotlin.android' version '2.4.0' apply false
               id 'com.google.gms.google-services' version '4.5.0' apply false
           }
           """)
 
+          # App Gradle
           app = Path("app/build.gradle")
 
           app.write_text("""plugins {
@@ -162,6 +164,7 @@ jobs:
           }
           """)
 
+          # Settings Gradle
           settings = Path("settings.gradle")
 
           if not settings.exists():
@@ -200,10 +203,10 @@ jobs:
 
               settings.write_text(content)
 
-          print("Konfigurasi Gradle selesai.")
+          print("Konfigurasi Gradle dan Firebase selesai.")
           PY
 
-      # 9. Buat Gradle Wrapper
+      # 9. Create Gradle Wrapper
       - name: Create Gradle Wrapper
         run: |
           set -e
@@ -229,7 +232,7 @@ jobs:
 
           ./gradlew clean assembleDebug assembleRelease --stacktrace
 
-      # 11. Periksa hasil APK
+      # 11. Verify APK
       - name: Verify APK
         run: |
           set -e
@@ -249,3 +252,4 @@ jobs:
             RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
             RumaGo_Android_Project/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          
