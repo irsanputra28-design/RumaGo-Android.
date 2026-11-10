@@ -38,7 +38,7 @@ jobs:
           test -f RumaGo_Android_Project.zip
           unzip -o RumaGo_Android_Project.zip
           test -f RumaGo_Android_Project/app/build.gradle
-          test -f RumaGo_Android_Project/gradlew
+          test -f RumaGo_Android_Project/settings.gradle
 
       - name: Copy Firebase Configuration
         run: |
@@ -71,8 +71,6 @@ jobs:
           echo "Keystore berhasil diperiksa."
 
       - name: Configure Gradle and Firebase
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -e
           cd RumaGo_Android_Project
@@ -80,7 +78,6 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # Root Gradle configuration
           root = Path("build.gradle")
 
           root.write_text("""plugins {
@@ -90,7 +87,6 @@ jobs:
           }
           """)
 
-          # App Gradle configuration
           app = Path("app/build.gradle")
 
           app.write_text("""plugins {
@@ -148,47 +144,20 @@ jobs:
           }
           """)
 
-          # Ensure plugin repositories are available
-          settings = Path("settings.gradle")
-
-          if not settings.exists():
-              settings.write_text("""pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          rootProject.name = 'RumaGo_Android_Project'
-          include ':app'
-          """)
-          else:
-              content = settings.read_text()
-
-              if "pluginManagement" not in content:
-                  content = """pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
-          """ + content
-
-              settings.write_text(content)
-
-          print("Konfigurasi Gradle, Firebase, dan signing selesai.")
+          print("Konfigurasi Gradle dan Firebase selesai.")
           PY
+
+      - name: Create Gradle Wrapper
+        run: |
+          set -e
+          cd RumaGo_Android_Project
+
+          gradle wrapper --gradle-version 8.9
+
+          chmod +x gradlew
+
+          test -f gradlew
+          echo "Gradle Wrapper berhasil dibuat."
 
       - name: Build Signed APK
         env:
@@ -197,16 +166,17 @@ jobs:
           set -e
           cd RumaGo_Android_Project
 
-          chmod +x gradlew
-
           ./gradlew clean assembleDebug assembleRelease --stacktrace
 
       - name: Verify APK
         run: |
           set -e
+
           test -s RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
+
           test -s RumaGo_Android_Project/app/build/outputs/apk/release/app-release.apk
-          echo "Kedua APK berhasil dibuat."
+
+          echo "APK berhasil dibuat."
 
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
