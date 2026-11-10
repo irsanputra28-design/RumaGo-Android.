@@ -35,8 +35,10 @@ jobs:
       - name: Extract RumaGo Project
         run: |
           set -e
+          test -f RumaGo_Android_Project.zip
           unzip -o RumaGo_Android_Project.zip
           test -f RumaGo_Android_Project/app/build.gradle
+          test -f RumaGo_Android_Project/gradlew
 
       - name: Copy Firebase Configuration
         run: |
@@ -58,6 +60,9 @@ jobs:
           fi
 
           echo "$KEYSTORE_BASE64" | base64 --decode > rumago-release.jks
+
+          test -s rumago-release.jks
+
           keytool -list \
             -keystore rumago-release.jks \
             -storepass "$KEYSTORE_PASSWORD" \
@@ -65,68 +70,56 @@ jobs:
 
           echo "Keystore berhasil diperiksa."
 
-      - name: Configure Gradle and Signing
+      - name: Configure Gradle and Firebase
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -e
           cd RumaGo_Android_Project
 
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
-          p = Path("build.gradle")
-          s = p.read_text()
+          # Root Gradle configuration
+          root = Path("build.gradle")
 
-          pattern = r"(id\s+['\"]org\.jetbrains\.kotlin\.android['\"]\s+version\s+['\"])[^'\"]+(['\"])"
-          s, count = re.subn(pattern, r"\g<1>2.4.0\2", s)
+          root.write_text("""plugins {
+              id 'com.android.application' version '8.7.3' apply false
+              id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
+              id 'com.google.gms.google-services' version '4.5.0' apply false
+          }
+          """)
 
-          if count == 0:
-              raise SystemExit("Plugin Kotlin tidak ditemukan.")
+          # App Gradle configuration
+          app = Path("app/build.gradle")
 
-          if "com.google.gms.google-services" not in s:
-              s = s.replace(
-                  "plugins {",
-                  "plugins {\n    id 'com.google.gms.google-services' version '4.4.2' apply false",
-                  1
-              )
-          elif not re.search(r"com\.google\.gms\.google-services['\"]\s+version", s):
-              s = re.sub(
-                  r"(id\s+['\"]com\.google\.gms\.google-services['\"])",
-                  r"\1 version '4.4.2' apply false",
-                  s,
-                  count=1
-              )
+          app.write_text("""plugins {
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
+              id 'com.google.gms.google-services'
+          }
 
-          p.write_text(s)
+          android {
+              namespace 'id.rumago.app'
+              compileSdk 35
 
-          p = Path("app/build.gradle")
-          s = p.read_text()
+              defaultConfig {
+                  applicationId 'id.rumago.app'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0.0'
+              }
 
-          s = re.sub(r'minSdk\s*(?:=\s*)?23', 'minSdk 24', s)
-
-          if "compileOptions" not in s:
-              s = s.replace(
-                  "android {",
-                  """android {
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
+
               kotlinOptions {
                   jvmTarget = '17'
               }
-          """,
-                  1
-              )
 
-          if "com.google.gms.google-services" not in s:
-              s = s.replace(
-                  "plugins {",
-                  "plugins {\n    id 'com.google.gms.google-services'",
-                  1
-              )
-
-          signing = """
               signingConfigs {
                   release {
                       storeFile file("../../rumago-release.jks")
@@ -140,33 +133,26 @@ jobs:
                   debug {
                       signingConfig signingConfigs.release
                   }
+
                   release {
                       signingConfig signingConfigs.release
                       minifyEnabled false
                   }
               }
-          """
-
-          if "signingConfigs" not in s:
-              s = s.replace("android {", "android {\n" + signing, 1)
-
-          if "firebase-bom" not in s:
-              s += """
+          }
 
           dependencies {
               implementation platform('com.google.firebase:firebase-bom:35.1.0')
               implementation 'com.google.firebase:firebase-auth'
               implementation 'com.google.firebase:firebase-firestore'
           }
-          """
+          """)
 
-          p.write_text(s)
+          # Ensure plugin repositories are available
+          settings = Path("settings.gradle")
 
-          p = Path("settings.gradle")
-          s = p.read_text()
-
-          if "pluginManagement" not in s:
-              s = """pluginManagement {
+          if not settings.exists():
+              settings.write_text("""pluginManagement {
               repositories {
                   google()
                   mavenCentral()
@@ -174,11 +160,34 @@ jobs:
               }
           }
 
-          """ + s
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
-          p.write_text(s)
+          rootProject.name = 'RumaGo_Android_Project'
+          include ':app'
+          """)
+          else:
+              content = settings.read_text()
 
-          print("Konfigurasi signing dan Firebase selesai.")
+              if "pluginManagement" not in content:
+                  content = """pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          """ + content
+
+              settings.write_text(content)
+
+          print("Konfigurasi Gradle, Firebase, dan signing selesai.")
           PY
 
       - name: Build Signed APK
@@ -187,11 +196,17 @@ jobs:
         run: |
           set -e
           cd RumaGo_Android_Project
-          if [ ! -f gradlew ]; then
-            gradle wrapper --gradle-version 8.9
-          fi
+
           chmod +x gradlew
-          ./gradlew assembleDebug assembleRelease --stacktrace
+
+          ./gradlew clean assembleDebug assembleRelease --stacktrace
+
+      - name: Verify APK
+        run: |
+          set -e
+          test -s RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
+          test -s RumaGo_Android_Project/app/build/outputs/apk/release/app-release.apk
+          echo "Kedua APK berhasil dibuat."
 
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
