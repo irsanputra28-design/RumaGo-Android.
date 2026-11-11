@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#0d6845">
+<title>RumaGo</title>
+<style>
+:root{--green:#0d6845;--lime:#dff5e9;--ink:#183329;--muted:#718078;--line:#e8eee9}
+*{box-sizing:border-box}
+body{margin:0;background:#f5f8f6;color:var(--ink);font:15px Arial,sans-serif;padding-bottom:78px}
+header{background:var(--green);color:white;padding:20px 18px 22px;border-radius:0 0 22px 22px}
+.brand{font-size:25px;font-weight:800;letter-spacing:-.7px}
+.tag{font-size:12px;opacity:.88;margin-top:3px}
+.location{margin-top:17px;font-size:12px;opacity:.9}
+.location b{display:block;font-size:14px;margin-top:3px}
+.search{display:flex;background:white;border-radius:12px;padding:12px;margin-top:16px;gap:8px}
+.search input{border:0;outline:0;width:100%;font-size:14px}
+main{padding:17px}
+.welcome{font-size:18px;font-weight:800;margin:3px 0 5px}
+.sub{color:var(--muted);font-size:13px}
+.banner{margin:17px 0;background:#e1f4e9;border-radius:16px;padding:16px;display:flex;justify-content:space-between;align-items:center}
+.banner strong{font-size:16px}
+.banner small{display:block;margin-top:5px;color:#4f6f5e}
+.banner .emoji{font-size:38px}
+h3{font-size:16px;margin:20px 0 12px}
+.chips{display:flex;gap:8px;overflow:auto;padding-bottom:3px}
+.chip{white-space:nowrap;border:1px solid var(--line);border-radius:30px;background:white;padding:9px 13px;font-size:12px}
+.chip.active{background:var(--green);color:white}
+.products{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.product{background:white;border:1px solid var(--line);border-radius:14px;padding:12px}
+.pic{height:86px;border-radius:10px;background:#f1f7f3;display:grid;place-items:center;font-size:42px}
+.name{font-weight:700;margin-top:9px;font-size:14px}
+.unit{color:var(--muted);font-size:11px;margin-top:3px}
+.price{font-weight:800;margin-top:9px}
+.add{width:100%;border:0;background:var(--green);color:white;border-radius:9px;padding:10px;margin-top:9px;font-weight:700}
+nav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:11px 4px calc(11px + env(safe-area-inset-bottom));z-index:4}
+nav button{background:none;border:0;color:#65736b;font-size:11px}
+nav button b{display:block;font-size:19px;margin-bottom:3px}
+nav button.sel{color:var(--green);font-weight:bold}
+.panel{background:white;border:1px solid var(--line);border-radius:14px;padding:15px;margin-top:13px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+input,select{font:inherit}
+.field{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;margin:6px 0 12px;background:white}
+.primary{width:100%;border:0;background:var(--green);color:white;padding:13px;border-radius:11px;font-weight:bold;margin-top:10px}
+.secondary{width:100%;border:1px solid var(--green);background:white;color:var(--green);padding:12px;border-radius:11px;font-weight:bold;margin-top:9px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.message{padding:11px;border-radius:9px;margin:10px 0;font-size:13px;background:#e1f4e9;color:#145b3d}
+.error{background:#fff0ef;color:#a52b24}
+.link{border:0;background:none;color:var(--green);font-weight:bold;padding:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">RumaGo</div>
+  <div class="tag">Belanja Harian, Langsung Sampai.</div>
+  <div class="location">LOKASI PENGIRIMAN <b>Atur alamat pengiriman ▾</b></div>
+  <div class="search">⌕ <input id="search" placeholder="Cari beras, minyak, telur..." oninput="render()"></div>
+</header>
+
+<main id="app"></main>
+
+<nav>
+  <button class="sel" onclick="page('home',this)"><b>⌂</b>Beranda</button>
+  <button onclick="page('orders',this)"><b>▤</b>Pesanan</button>
+  <button onclick="page('cart',this)"><b>🛒</b>Keranjang <span id="count"></span></button>
+  <button onclick="page('account',this)"><b>●</b>Akun</button>
+</nav>
+
+<script>
+const products=[
+{id:1,n:'Beras Premium',u:'5 kg',p:74000,e:'🍚',c:'Sembako'},
+{id:2,n:'Minyak Goreng',u:'1 liter',p:18000,e:'🫗',c:'Sembako'},
+{id:3,n:'Telur Ayam',u:'1 kg',p:29000,e:'🥚',c:'Protein'},
+{id:4,n:'Gula Pasir',u:'1 kg',p:17500,e:'🧂',c:'Sembako'},
+{id:5,n:'Susu UHT',u:'1 liter',p:19000,e:'🥛',c:'Minuman'},
+{id:6,n:'Mie Instan',u:'5 pcs',p:16000,e:'🍜',c:'Makanan'},
+{id:7,n:'Pisang',u:'1 sisir',p:22000,e:'🍌',c:'Buah'},
+{id:8,n:'Air Mineral',u:'600 ml x 6',p:15000,e:'💧',c:'Minuman'}
+];
+
+let cart=JSON.parse(localStorage.getItem('rg_cart')||'{}');
+let current='home';
+let category='Semua';
+let authUser=null;
+let authMode='login';
+let authMessage='';
+let authError=false;
+let authBusy=false;
+
+const rupiah=n=>'Rp'+n.toLocaleString('id-ID');
+
+function save(){
+  localStorage.setItem('rg_cart',JSON.stringify(cart));
+  document.getElementById('count').textContent=
+    Object.values(cart).reduce((a,b)=>a+b,0)||'';
+}
+
+function page(p,el){
+  current=p;
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('sel'));
+  if(el)el.classList.add('sel');
+  render();
+}
+
+function add(id){
+  cart[id]=(cart[id]||0)+1;
+  save();
+  render();
+}
+
+function change(id,d){
+  cart[id]=(cart[id]||0)+d;
+  if(cart[id]<=0)delete cart[id];
+  save();
+  render();
+}
+
+function showMessage(message,error=false){
+  authMessage=message;
+  authError=error;
+  render();
+}
+
+function accountForm(){
+  if(authUser){
+    return `
+      <h2>Akun Saya</h2>
+      <div class="panel">
+        <div class="sub">Anda sudah login sebagai pelanggan.</div>
+        <h3>${escapeHtml(authUser.email||'')}</h3>
+        <div class="row"><span>Status akun</span><b>Login</b></div>
+        <button class="primary" onclick="logout()">Keluar</button>
+      </div>`;
+  }
+
+  return `
+    <h2>Akun Saya</h2>
+    <div class="panel">
+      <b>${authMode==='login'?'Login RumaGo':'Daftar Akun RumaGo'}</b>
+      <p class="sub">Belanja Harian, Langsung Sampai.</p>
+
+      ${authMessage?`<div class="message ${authError?'error':''}">${escapeHtml(authMessage)}</div>`:''}
+
+      ${authMode==='register'?`
+        <label>Nama lengkap</label>
+        <input class="field" id="authName" placeholder="Masukkan nama lengkap" autocomplete="name">
+      `:''}
+
+      <label>Email</label>
+      <input class="field" id="authEmail" type="email" placeholder="nama@email.com" autocomplete="email">
+
+      <label>Password</label>
+      <input class="field" id="authPassword" type="password" placeholder="Minimal 6 karakter" autocomplete="${authMode==='login'?'current-password':'new-password'}">
+
+      <button class="primary" onclick="submitAuth()" ${authBusy?'disabled':''}>
+        ${authBusy?'Mohon tunggu...':(authMode==='login'?'Login':'Daftar Sekarang')}
+      </button>
+
+      <button class="link" onclick="switchAuth()">
+        ${authMode==='login'?'Belum punya akun? Daftar':'Sudah punya akun? Login'}
+      </button>
+    </div>
+    <div class="sub" style="margin-top:12px">
+      Pendaftaran umum hanya membuat akun pelanggan. Akun admin dan kurir diberikan melalui pengaturan khusus.
+    </div>`;
+}
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g,function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
+
+function switchAuth(){
+  authMode=authMode==='login'?'register':'login';
+  authMessage='';
+  authError=false;
+  render();
+}
+
+function submitAuth(){
+  if(authBusy)return;
+
+  const email=(document.getElementById('authEmail')?.value||'').trim();
+  const password=document.getElementById('authPassword')?.value||'';
+  const name=(document.getElementById('authName')?.value||'').trim();
+
+  if(!email||!password){
+    showMessage('Email dan password wajib diisi.',true);
+    return;
+  }
+
+  if(password.length<6){
+    showMessage('Password minimal 6 karakter.',true);
+    return;
+  }
+
+  if(authMode==='register'&&!name){
+    showMessage('Nama lengkap wajib diisi.',true);
+    return;
+  }
+
+  if(!window.RumaGoAuth){
+    showMessage('Koneksi Firebase belum tersedia. Periksa aplikasi dan konfigurasi Android.',true);
+    return;
+  }
+
+  authBusy=true;
+  authMessage='';
+  render();
+
+  if(authMode==='register'){
+    window.RumaGoAuth.register(email,password);
+  }else{
+    window.RumaGoAuth.login(email,password);
+  }
+}
+
+function logout(){
+  if(!window.RumaGoAuth){
+    showMessage('Koneksi akun tidak tersedia.',true);
+    return;
+  }
+  authBusy=true;
+  render();
+  window.RumaGoAuth.logout();
+}
+
+/* Callback dari MainActivity.kt */
+window.onRumaGoAuthResult=function(result){
+  authBusy=false;
+
+  if(result&&result.ok){
+    authUser={
+      uid:result.uid||'',
+      email:result.email||''
+    };
+    authMessage=result.message||'Berhasil.';
+    authError=false;
+    authMode='login';
+  }else{
+    authMessage=(result&&result.message)||'Proses akun gagal.';
+    authError=true;
+  }
+
+  render();
+};
+
+window.onRumaGoAuthState=function(state){
+  if(state&&state.loggedIn){
+    authUser={
+      uid:state.uid||'',
+      email:state.email||''
+    };
+  }else{
+    authUser=null;
+  }
+  render();
+};
+
+function render(){
+  const app=document.getElementById('app');
+  save();
+
+  if(current==='home'){
+    let q=(document.getElementById('search').value||'').toLowerCase();
+    let cats=['Semua','Sembako','Protein','Minuman','Makanan','Buah'];
+    let shown=products.filter(x=>
+      (category==='Semua'||x.c===category)&&
+      x.n.toLowerCase().includes(q)
+    );
+
+    app.innerHTML=`
+      <div class="welcome">Belanja kebutuhan rumah jadi mudah</div>
+      <div class="sub">Produk pilihan, praktis sampai ke rumah.</div>
+      <div class="banner">
+        <div><strong>Belanja lebih praktis!</strong><small>Pesan kebutuhan harian dalam satu aplikasi.</small></div>
+        <div class="emoji">🛍️</div>
+      </div>
+      <h3>Kategori produk</h3>
+      <div class="chips">${cats.map(c=>`
+        <button class="chip ${category===c?'active':''}" onclick="category='${c}';render()">${c}</button>
+      `).join('')}</div>
+      <h3>Produk pilihan</h3>
+      <div class="products">${shown.map(x=>`
+        <div class="product">
+          <div class="pic">${x.e}</div>
+          <div class="name">${x.n}</div>
+          <div class="unit">${x.u}</div>
+          <div class="price">${rupiah(x.p)}</div>
+          <button class="add" onclick="add(${x.id})">+ Tambah</button>
+        </div>
+      `).join('')||'<div class="empty">Produk tidak ditemukan.</div>'}</div>`;
+  }
+
+  else if(current==='cart'){
+    let items=products.filter(x=>cart[x.id]);
+    let total=items.reduce((s,x)=>s+x.p*cart[x.id],0);
+
+    app.innerHTML=`
+      <h2>Keranjang Belanja</h2>
+      ${items.length?items.map(x=>`
+        <div class="panel row">
+          <div><b>${x.n}</b><div class="sub">${rupiah(x.p)} / ${x.u}</div></div>
+          <div>
+            <button onclick="change(${x.id},-1)">−</button>
+            ${cart[x.id]}
+            <button onclick="change(${x.id},1)">+</button>
+          </div>
+        </div>
+      `).join('')+`
+        <div class="panel">
+          <div class="row"><b>Total belanja</b><b>${rupiah(total)}</b></div>
+          <button class="primary" onclick="page('checkout')">Lanjut Checkout</button>
+        </div>
+      `:'<div class="empty">Keranjang masih kosong.<br>Yuk pilih kebutuhan harian Anda.</div>'}`;
+  }
+
+  else if(current==='checkout'){
+    let total=products.reduce((s,x)=>s+x.p*(cart[x.id]||0),0);
+
+    app.innerHTML=`
+      <h2>Checkout</h2>
+      <div class="panel">
+        <b>Alamat pengiriman</b>
+        <input class="field" id="addr" placeholder="Nama jalan, nomor rumah, kecamatan">
+        <b>Nomor WhatsApp</b>
+        <input class="field" id="phone" placeholder="08xxxxxxxxxx" type="tel">
+        <b>Jadwal pengiriman</b>
+        <select class="field" id="delivery">
+          <option>Instan (demo)</option>
+          <option>Terjadwal (demo)</option>
+        </select>
+        <div class="row"><b>Total pembayaran</b><b>${rupiah(total)}</b></div>
+        <button class="primary" onclick="placeOrder()">Buat Pesanan Demo</button>
+        <div class="sub" style="margin-top:10px">Pesanan masih disimpan di perangkat ini. Pembayaran online belum diaktifkan.</div>
+      </div>`;
+  }
+
+  else if(current==='orders'){
+    let orders=JSON.parse(localStorage.getItem('rg_orders')||'[]');
+    app.innerHTML=`
+      <h2>Pesanan Saya</h2>
+      ${orders.length?orders.map(o=>`
+        <div class="panel">
+          <div class="row"><b>${escapeHtml(o.code)}</b><span>${escapeHtml(o.status)}</span></div>
+          <div class="sub">${escapeHtml(o.date)}</div>
+          <b>${rupiah(o.total)}</b>
+        </div>
+      `).join(''):'<div class="empty">Belum ada pesanan.</div>'}`;
+  }
+
+  else if(current==='account'){
+    app.innerHTML=accountForm();
+  }
+}
+
+function placeOrder(){
+  const addr=document.getElementById('addr').value.trim();
+  const phone=document.getElementById('phone').value.trim();
+
+  if(!addr||!phone){
+    alert('Lengkapi alamat dan nomor WhatsApp.');
+    return;
+  }
+
+  let total=products.reduce((s,x)=>s+x.p*(cart[x.id]||0),0);
+  let orders=JSON.parse(localStorage.getItem('rg_orders')||'[]');
+
+  orders.unshift({
+    code:'RG'+Date.now().toString().slice(-7),
+    status:'Menunggu konfirmasi (demo)',
+    date:new Date().toLocaleString('id-ID'),
+    total,addr,phone,
+    delivery:document.getElementById('delivery').value
+  });
+
+  localStorage.setItem('rg_orders',JSON.stringify(orders));
+  cart={};
+  save();
+  alert('Pesanan demo berhasil dibuat di perangkat ini.');
+  page('orders');
+}
+
+render();
+save();
+
+/* Periksa akun Firebase saat halaman selesai dibuka */
+if(window.RumaGoAuth){
+  window.RumaGoAuth.getCurrentUser();
+}
+</script>
+</main>
+</body>
+</html>
+
