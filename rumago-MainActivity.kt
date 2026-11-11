@@ -3,59 +3,73 @@ package id.rumago.app
 
 import android.app.Activity
 import android.os.Bundle
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.WebChromeClient
-import android.webkit.JavascriptInterface
-import android.view.ViewGroup
 import android.graphics.Color
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FieldValue
+import org.json.JSONArray
 import org.json.JSONObject
-import java.util.HashMap
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : Activity() {
 
     private lateinit var webView: WebView
+    private val auth by lazy { FirebaseAuth.getInstance() }
+    private val db by lazy { FirebaseFirestore.getInstance() }
 
-    private val auth: FirebaseAuth by lazy {
-        FirebaseAuth.getInstance()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        window.statusBarColor = Color.rgb(13, 104, 69)
+        window.navigationBarColor = Color.rgb(8, 75, 50)
+
+        webView = WebView(this)
+        setContentView(webView)
+
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.allowFileAccess = true
+        webView.settings.javaScriptCanOpenWindowsAutomatically = false
+
+        webView.webViewClient = WebViewClient()
+        webView.webChromeClient = WebChromeClient()
+
+        webView.addJavascriptInterface(RumaGoBridge(), "Android")
+        webView.loadUrl("file:///android_asset/index.html")
     }
 
-    private val db: FirebaseFirestore by lazy {
-        FirebaseFirestore.getInstance()
-    }
-
-    private fun sendToPage(function: String, data: JSONObject) {
-        val json = data.toString()
+    private fun sendCallback(functionName: String, payload: JSONObject) {
+        val safeJson = JSONObject.quote(payload.toString())
 
         runOnUiThread {
             webView.evaluateJavascript(
-                "window.$function && window.$function($json)",
+                "window.$functionName && window.$functionName($safeJson);",
                 null
             )
         }
     }
 
-    private fun sendAuthResult(
-        success: Boolean,
-        message: String,
-        uid: String = "",
-        email: String = "",
-        profileSaved: Boolean = false
-    ) {
-        val result = JSONObject()
-        result.put("ok", success)
-        result.put("uid", uid)
-        result.put("email", email)
-        result.put("profileSaved", profileSaved)
-        result.put("message", message)
-
-        sendToPage("onRumaGoAuthResult", result)
+    private fun userJson(
+        uid: String,
+        email: String?,
+        profile: Map<String, Any?>
+    ): JSONObject {
+        return JSONObject().apply {
+            put("uid", uid)
+            put("email", email ?: "")
+            put("name", profile["name"] ?: "")
+            put("phone", profile["phone"] ?: "")
+            put("role", profile["role"] ?: "customer")
+        }
     }
 
-    inner class AuthBridge {
+    private inner class RumaGoBridge {
 
         @JavascriptInterface
         fun registerCustomer(
@@ -64,106 +78,192 @@ class MainActivity : Activity() {
             phone: String,
             password: String
         ) {
-            val cleanName = name.trim()
-            val cleanEmail = email.trim().lowercase()
-            val cleanPhone = phone.trim()
+            auth.createUserWithEmailAndPassword(
+                email.trim(),
+                password
+            ).addOnSuccessListener { result ->
 
-            if (cleanName.isEmpty() || cleanEmail.isEmpty() ||
-                cleanPhone.isEmpty() || password.length < 6
-            ) {
-                sendAuthResult(
-                    false,
-                    "Lengkapi semua data. Password minimal 6 karakter."
-                )
-                return
-            }
+                val user = result.user
 
-            auth.createUserWithEmailAndPassword(cleanEmail, password)
-                .addOnCompleteListener { task ->
-
-                    if (!task.isSuccessful) {
-                        sendAuthResult(
-                            false,
-                            task.exception?.localizedMessage
-                                ?: "Pendaftaran gagal."
-                        )
-                        return@addOnCompleteListener
-                    }
-
-                    val user = auth.currentUser
-
-                    if (user == null) {
-                        sendAuthResult(false, "Akun berhasil dibuat, tetapi UID tidak ditemukan.")
-                        return@addOnCompleteListener
-                    }
-
-                    val profile = HashMap<String, Any>()
-                    profile["uid"] = user.uid
-                    profile["name"] = cleanName
-                    profile["email"] = cleanEmail
-                    profile["phone"] = cleanPhone
-                    profile["role"] = "customer"
-                    profile["createdAt"] = FieldValue.serverTimestamp()
-
-                    db.collection("users")
-                        .document(user.uid)
-                        .set(profile)
-                        .addOnSuccessListener {
-                            sendAuthResult(
-                                true,
-                                "Pendaftaran berhasil. Selamat datang di RumaGo!",
-                                user.uid,
-                                cleanEmail,
-                                true
-                            )
-                        }
-                        .addOnFailureListener { error ->
-                            sendAuthResult(
-                                false,
-                                "Akun berhasil dibuat, tetapi profil gagal disimpan: " +
-                                    (error.localizedMessage ?: "Kesalahan Firestore"),
-                                user.uid,
-                                cleanEmail,
-                                false
-                            )
-                        }
+                if (user == null) {
+                    sendCallback(
+                        "onRumaGoAuthResult",
+                        JSONObject()
+                            .put("success", false)
+                            .put("message", "Akun tidak ditemukan setelah registrasi.")
+                    )
+                    return@addOnSuccessListener
                 }
+
+                val profile = hashMapOf<String, Any>(
+                    "uid" to user.uid,
+                    "name" to name.trim(),
+                    "email" to email.trim(),
+                    "phone" to phone.trim(),
+                    "role" to "customer",
+                    "createdAt" to FieldValue.serverTimestamp()
+                )
+
+                db.collection("users")
+                    .document(user.uid)
+                    .set(profile)
+                    .addOnSuccessListener {
+
+                        val safeProfile = mapOf(
+                            "name" to name.trim(),
+                            "phone" to phone.trim(),
+                            "role" to "customer"
+                        )
+
+                        sendCallback(
+                            "onRumaGoAuthResult",
+                            JSONObject()
+                                .put("success", true)
+                                .put("message", "Registrasi berhasil. Selamat datang di RumaGo.")
+                                .put(
+                                    "user",
+                                    userJson(user.uid, user.email, safeProfile)
+                                )
+                        )
+                    }
+                    .addOnFailureListener { e ->
+                        sendCallback(
+                            "onRumaGoAuthResult",
+                            JSONObject()
+                                .put("success", false)
+                                .put(
+                                    "message",
+                                    "Akun dibuat, tetapi profil gagal disimpan: ${e.localizedMessage ?: "Periksa koneksi dan Firestore Rules"}"
+                                )
+                        )
+                    }
+            }.addOnFailureListener { e ->
+                sendCallback(
+                    "onRumaGoAuthResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", e.localizedMessage ?: "Registrasi gagal.")
+                )
+            }
         }
 
-        // Kompatibilitas sementara dengan formulir lama
         @JavascriptInterface
         fun register(email: String, password: String) {
-            val defaultName = email.substringBefore("@").ifBlank { "Customer" }
-
-            registerCustomer(
-                defaultName,
-                email,
-                "Belum diisi",
+            auth.createUserWithEmailAndPassword(
+                email.trim(),
                 password
-            )
+            ).addOnSuccessListener { result ->
+
+                sendCallback(
+                    "onRumaGoAuthResult",
+                    JSONObject()
+                        .put("success", true)
+                        .put("message", "Akun berhasil dibuat.")
+                        .put(
+                            "user",
+                            JSONObject()
+                                .put("uid", result.user?.uid ?: "")
+                                .put("email", email)
+                                .put("role", "customer")
+                        )
+                )
+            }.addOnFailureListener { e ->
+                sendCallback(
+                    "onRumaGoAuthResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", e.localizedMessage ?: "Registrasi gagal.")
+                )
+            }
         }
 
         @JavascriptInterface
         fun login(email: String, password: String) {
-            auth.signInWithEmailAndPassword(email.trim(), password)
-                .addOnCompleteListener { task ->
+            auth.signInWithEmailAndPassword(
+                email.trim(),
+                password
+            ).addOnSuccessListener { result ->
 
-                    if (task.isSuccessful) {
-                        val user = auth.currentUser
+                val user = result.user
 
-                        sendAuthResult(
-                            true,
-                            "Login berhasil.",
-                            user?.uid ?: "",
-                            user?.email ?: "",
-                            true
-                        )
-                    } else {
-                        sendAuthResult(
-                            false,
-                            task.exception?.localizedMessage ?: "Login gagal."
+                if (user == null) {
+                    sendCallback(
+                        "onRumaGoAuthResult",
+                        JSONObject()
+                            .put("success", false)
+                            .put("message", "Akun tidak ditemukan.")
+                    )
+                    return@addOnSuccessListener
+                }
+
+                db.collection("users")
+                    .document(user.uid)
+                    .get()
+                    .addOnSuccessListener { doc ->
+
+                        val data = doc.data ?: emptyMap<String, Any>()
+
+                        sendCallback(
+                            "onRumaGoAuthResult",
+                            JSONObject()
+                                .put("success", true)
+                                .put("message", "Login berhasil.")
+                                .put(
+                                    "user",
+                                    userJson(user.uid, user.email, data)
+                                )
                         )
                     }
+                    .addOnFailureListener { e ->
+                        sendCallback(
+                            "onRumaGoAuthResult",
+                            JSONObject()
+                                .put("success", false)
+                                .put("message", e.localizedMessage ?: "Gagal membaca profil.")
+                        )
+                    }
+            }.addOnFailureListener { e ->
+                sendCallback(
+                    "onRumaGoAuthResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", e.localizedMessage ?: "Login gagal.")
+                )
+            }
+        }
+
+        @JavascriptInterface
+        fun getCurrentUser() {
+            val user = auth.currentUser
+
+            if (user == null) {
+                sendCallback(
+                    "onRumaGoCurrentUser",
+                    JSONObject().put("user", JSONObject.NULL)
+                )
+                return
+            }
+
+            db.collection("users")
+                .document(user.uid)
+                .get()
+                .addOnSuccessListener { doc ->
+
+                    val data = doc.data ?: emptyMap<String, Any>()
+
+                    sendCallback(
+                        "onRumaGoCurrentUser",
+                        JSONObject().put(
+                            "user",
+                            userJson(user.uid, user.email, data)
+                        )
+                    )
+                }
+                .addOnFailureListener {
+                    sendCallback(
+                        "onRumaGoCurrentUser",
+                        JSONObject().put("user", JSONObject.NULL)
+                    )
                 }
         }
 
@@ -171,81 +271,182 @@ class MainActivity : Activity() {
         fun logout() {
             auth.signOut()
 
-            val result = JSONObject()
-            result.put("ok", true)
-            result.put("message", "Berhasil keluar.")
-
-            sendToPage("onRumaGoAuthResult", result)
+            sendCallback(
+                "onRumaGoAuthResult",
+                JSONObject()
+                    .put("success", true)
+                    .put("message", "Anda sudah keluar.")
+                    .put("user", JSONObject.NULL)
+            )
         }
 
         @JavascriptInterface
-        fun getCurrentUser() {
+        fun createOrder(orderJson: String) {
             val user = auth.currentUser
-            val result = JSONObject()
 
-            result.put("loggedIn", user != null)
-            result.put("uid", user?.uid ?: "")
-            result.put("email", user?.email ?: "")
+            if (user == null) {
+                sendCallback(
+                    "onRumaGoOrderResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", "Silakan login kembali.")
+                )
+                return
+            }
 
-            sendToPage("onRumaGoAuthState", result)
-        }
-    }
+            try {
+                val input = JSONObject(orderJson)
+                val itemsJson = input.optJSONArray("items") ?: JSONArray()
+                val items = mutableListOf<Map<String, Any>>()
 
-    private val authBridge = AuthBridge()
+                for (i in 0 until itemsJson.length()) {
+                    val item = itemsJson.getJSONObject(i)
 
-    @Suppress("SetJavaScriptEnabled")
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+                    items.add(
+                        mapOf(
+                            "id" to item.optInt("id"),
+                            "name" to item.optString("name"),
+                            "price" to item.optDouble("price"),
+                            "qty" to item.optInt("qty")
+                        )
+                    )
+                }
 
-        window.statusBarColor = Color.rgb(13, 104, 69)
-        window.navigationBarColor = Color.WHITE
+                if (items.isEmpty()) {
+                    sendCallback(
+                        "onRumaGoOrderResult",
+                        JSONObject()
+                            .put("success", false)
+                            .put("message", "Keranjang masih kosong.")
+                    )
+                    return
+                }
 
-        window.decorView.systemUiVisibility =
-            android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                val orderNumber = "RG" + System.currentTimeMillis()
 
-        webView = WebView(this)
+                val order = hashMapOf<String, Any>(
+                    "orderNumber" to orderNumber,
+                    "customerId" to user.uid,
+                    "customerEmail" to (user.email ?: ""),
+                    "customerName" to input.optString("customerName"),
+                    "phone" to input.optString("phone"),
+                    "address" to input.optString("address"),
+                    "city" to input.optString("city"),
+                    "delivery" to input.optString("delivery"),
+                    "note" to input.optString("note"),
+                    "items" to items,
+                    "total" to input.optDouble("total"),
+                    "status" to "Menunggu Konfirmasi",
+                    "createdAt" to FieldValue.serverTimestamp()
+                )
 
-        webView.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
+                db.collection("orders")
+                    .add(order)
+                    .addOnSuccessListener {
+                        sendCallback(
+                            "onRumaGoOrderResult",
+                            JSONObject()
+                                .put("success", true)
+                                .put("orderNumber", orderNumber)
+                        )
+                    }
+                    .addOnFailureListener { e ->
+                        sendCallback(
+                            "onRumaGoOrderResult",
+                            JSONObject()
+                                .put("success", false)
+                                .put("message", e.localizedMessage ?: "Gagal menyimpan pesanan.")
+                        )
+                    }
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-
-        webView.addJavascriptInterface(authBridge, "RumaGoAuth")
-
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                authBridge.getCurrentUser()
+            } catch (e: Exception) {
+                sendCallback(
+                    "onRumaGoOrderResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", e.localizedMessage ?: "Data pesanan tidak valid.")
+                )
             }
         }
 
-        webView.webChromeClient = WebChromeClient()
+        @JavascriptInterface
+        fun getMyOrders() {
+            val user = auth.currentUser
 
-        setContentView(webView)
+            if (user == null) {
+                sendCallback(
+                    "onRumaGoOrdersResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", "Silakan login.")
+                )
+                return
+            }
 
-        if (savedInstanceState == null) {
-            webView.loadUrl("file:///android_asset/index.html")
-        } else {
-            webView.restoreState(savedInstanceState)
-        }
-    }
+            db.collection("orders")
+                .whereEqualTo("customerId", user.uid)
+                .get()
+                .addOnSuccessListener { snapshot ->
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
-        super.onSaveInstanceState(outState)
-    }
+                    val result = JSONArray()
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
+                    for (doc in snapshot.documents) {
+                        val data = doc.data ?: continue
+                        val created = data["createdAt"]
+
+                        val dateText = when (created) {
+                            is com.google.firebase.Timestamp ->
+                                SimpleDateFormat(
+                                    "dd MMM yyyy, HH:mm",
+                                    Locale("id", "ID")
+                                ).format(created.toDate())
+
+                            is Date ->
+                                SimpleDateFormat(
+                                    "dd MMM yyyy, HH:mm",
+                                    Locale("id", "ID")
+                                ).format(created)
+
+                            else -> ""
+                        }
+
+                        val obj = JSONObject().apply {
+                            put("id", doc.id)
+                            put("orderNumber", data["orderNumber"] ?: doc.id)
+                            put("status", data["status"] ?: "Diproses")
+                            put("createdAt", dateText)
+                            put("customerName", data["customerName"] ?: "")
+                            put("phone", data["phone"] ?: "")
+                            put("address", data["address"] ?: "")
+                            put("city", data["city"] ?: "")
+                            put("delivery", data["delivery"] ?: "")
+                            put("total", data["total"] ?: 0)
+                            put(
+                                "items",
+                                JSONArray(
+                                    data["items"] as? Collection<*> ?: emptyList<Any>()
+                                )
+                            )
+                        }
+
+                        result.put(obj)
+                    }
+
+                    sendCallback(
+                        "onRumaGoOrdersResult",
+                        JSONObject()
+                            .put("success", true)
+                            .put("orders", result)
+                    )
+                }
+                .addOnFailureListener { e ->
+                    sendCallback(
+                        "onRumaGoOrdersResult",
+                        JSONObject()
+                            .put("success", false)
+                            .put("message", e.localizedMessage ?: "Gagal memuat pesanan.")
+                    )
+                }
         }
     }
 }
