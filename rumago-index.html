@@ -68,10 +68,9 @@ hr{border:0;border-top:1px solid var(--line);margin:13px 0}.small-btn,.link-btn{
  <button class="nav-btn" id="navAccount" onclick="showPage('account')"><strong>♙</strong>Akun</button>
 </nav>
 <div class="toast" id="toast"></div>
-
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
-import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,updateProfile} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,setDoc,addDoc,onSnapshot,query,where,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const firebaseConfig={
@@ -95,7 +94,7 @@ const $=id=>document.getElementById(id);
 function readLocalArray(key){try{const v=JSON.parse(localStorage.getItem(key)||"[]");return Array.isArray(v)?v:[]}catch(e){return []}}
 function rupiah(v){return "Rp "+Number(v||0).toLocaleString("id-ID")}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(window._rgToast);window._rgToast=setTimeout(()=>t.style.display="none",2600)}
+function toast(msg){const t=$("toast");if(!t)return;t.textContent=msg;t.style.display="block";clearTimeout(window._rgToast);window._rgToast=setTimeout(()=>t.style.display="none",2600)}
 function saveCart(){localStorage.setItem("rg_cart",JSON.stringify(cart));updateCartCount()}
 function updateCartCount(){$("cartCount").textContent=cart.reduce((s,x)=>s+Number(x.qty||0),0)}
 function cartTotal(){return cart.reduce((s,x)=>s+Number(x.price||0)*Number(x.qty||0),0)}
@@ -111,7 +110,7 @@ function startProductListener(){
   const live=snap.docs.map(x=>normalizeProduct(x.id,x.data())).filter(p=>p.active);
   products=live.length?live:demoProducts;
   renderCategories();renderProducts();
- },err=>{console.error(err);products=demoProducts;renderCategories();renderProducts();toast("Katalog online gagal dimuat. Menampilkan produk contoh.")});
+ },err=>{console.error("Produk:",err);products=demoProducts;renderCategories();renderProducts();toast("Katalog online gagal dimuat. Produk contoh ditampilkan.")});
 }
 function showPage(page){
  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
@@ -210,4 +209,74 @@ function loadOrders(){
 function renderOrders(list){
  const c=$("ordersContent");orders=Array.isArray(list)?list:[];
  if(!orders.length){c.innerHTML=`<div class="card empty"><div style="font-size:40px">📦</div><h3>Belum ada pesanan</h3><p>Pesanan Anda akan tampil di sini.</p></div>`;return}
- c.innerHTML=orders.map(o=>`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(o.orderNumber||o.id||"Pesanan")}</b><span class="status">${esc(o.status||"Diproses")}</span></div><p class="muted">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("id-ID"):""}</p><hr>${(o.items||[]).map(i=>`<di
+ c.innerHTML=orders.map(o=>`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(o.orderNumber||o.id||"Pesanan")}</b><span class="status">${esc(o.status||"Diproses")}</span></div><p class="muted">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("id-ID"):""}</p><hr>${(o.items||[]).map(i=>`<div class="cart-row"><span>${esc(i.name)} × ${Number(i.qty||0)}</span><b>${rupiah(Number(i.price||0)*Number(i.qty||0))}</b></div>`).join("")}<div class="total-row"><span>Total</span><b>${rupiah(o.total)}</b></div><div class="muted">Pengiriman: ${esc(o.delivery||"-")} · ${esc(o.city||"-")}</div></div>`).join("");
+}
+function renderAccount(){
+ const c=$("accountContent");
+ if(authUser){
+  c.innerHTML=`<div class="card"><h3>Halo, ${esc(authUser.name||authUser.email||"Pelanggan")}!</h3><p class="muted">${esc(authUser.email||"")}</p><div class="form-group"><label>Nama lengkap</label><input id="profileName" value="${esc(authUser.name||"")}" placeholder="Nama lengkap"></div><div class="form-group"><label>Nomor HP</label><input id="profilePhone" value="${esc(authUser.phone||"")}" placeholder="08xxxxxxxxxx"></div><button class="btn btn-block" onclick="saveProfile()">Simpan Profil</button><button class="btn btn-light btn-block" onclick="logoutUser()">Keluar</button></div>`;
+ }else{
+  const register=authMode==="register";
+  c.innerHTML=`<div class="card"><h3>${register?"Daftar Akun RumaGo":"Login RumaGo"}</h3>${register?`<div class="form-group"><label>Nama lengkap</label><input id="authName" placeholder="Nama lengkap"></div><div class="form-group"><label>Nomor HP</label><input id="authPhone" type="tel" placeholder="08xxxxxxxxxx"></div>`:""}<div class="form-group"><label>Email</label><input id="authEmail" type="email" placeholder="nama@email.com" autocomplete="email"></div><div class="form-group"><label>Password</label><input id="authPassword" type="password" placeholder="Minimal 6 karakter" autocomplete="${register?"new-password":"current-password"}"></div><button class="btn btn-block" onclick="submitAuth()">${register?"Daftar":"Login"}</button><button class="link-btn" onclick="toggleAuthMode()">${register?"Sudah punya akun? Login":"Belum punya akun? Daftar"}</button></div>`;
+ }
+}
+function toggleAuthMode(){authMode=authMode==="login"?"register":"login";renderAccount()}
+async function submitAuth(){
+ const email=$("authEmail")?.value.trim(),password=$("authPassword")?.value||"";
+ if(!email||!password){toast("Email dan password wajib diisi.");return}
+ try{
+  if(authMode==="register"){
+   const name=$("authName")?.value.trim(),phone=$("authPhone")?.value.trim()||"";
+   if(!name){toast("Nama lengkap wajib diisi.");return}
+   const cred=await createUserWithEmailAndPassword(auth,email,password);
+   await setDoc(doc(db,"users",cred.user.uid),{name,phone,email:cred.user.email,role:"customer",createdAt:serverTimestamp()});
+   toast("Pendaftaran berhasil.");
+  }else{
+   await signInWithEmailAndPassword(auth,email,password);toast("Login berhasil.");
+  }
+ }catch(e){console.error(e);toast(authError(e))}
+}
+function authError(e){
+ const code=e?.code||"";
+ if(code.includes("email-already-in-use"))return "Email sudah terdaftar. Silakan login.";
+ if(code.includes("invalid-email"))return "Format email tidak valid.";
+ if(code.includes("weak-password"))return "Password minimal 6 karakter.";
+ if(code.includes("invalid-credential")||code.includes("wrong-password")||code.includes("user-not-found"))return "Email atau password salah.";
+ if(code.includes("network-request-failed"))return "Koneksi internet bermasalah.";
+ return e?.message||"Proses akun gagal. Coba lagi.";
+}
+async function saveProfile(){
+ if(!auth.currentUser)return;
+ const name=$("profileName").value.trim(),phone=$("profilePhone").value.trim();
+ if(!name){toast("Nama tidak boleh kosong.");return}
+ try{
+  await setDoc(doc(db,"users",auth.currentUser.uid),{name,phone,email:auth.currentUser.email,role:authUser?.role||"customer"},{merge:true});
+  authUser={...authUser,name,phone};toast("Profil berhasil disimpan.");renderAccount();
+ }catch(e){console.error(e);toast("Profil gagal disimpan: "+e.message)}
+}
+async function logoutUser(){
+ try{if(stopOrders){stopOrders();stopOrders=null}await signOut(auth);toast("Anda sudah keluar.");showPage("home")}
+ catch(e){toast("Gagal keluar: "+e.message)}
+}
+onAuthStateChanged(auth,async user=>{
+ if(stopOrders){stopOrders();stopOrders=null}
+ if(user){
+  try{
+   const snap=await getDoc(doc(db,"users",user.uid));
+   const data=snap.exists()?snap.data():{};
+   authUser={uid:user.uid,email:user.email,name:data.name||user.displayName||"",phone:data.phone||"",role:data.role||"customer"};
+  }catch(e){console.error("Profil:",e);authUser={uid:user.uid,email:user.email,name:user.displayName||"",phone:"",role:"customer"}}
+ }else authUser=null;
+ if($("accountPage").classList.contains("active"))renderAccount();
+});
+Object.assign(window,{
+ showPage,renderProducts,selectCategory,addToCart,changeQty,removeCartItem,checkout,
+ getCheckoutLocation,submitOrder,renderCart,toggleAuthMode,submitAuth,saveProfile,logoutUser
+});
+updateCartCount();
+renderCategories();
+renderProducts();
+startProductListener();
+</script>
+</body>
+</html>
