@@ -556,7 +556,7 @@ class MainActivity : Activity() {
                             .put("orders", result)
                     )
                 }
-                .
+                
 .addOnFailureListener { e ->
     sendCallback(
         "onRumaGoOrdersResult",
