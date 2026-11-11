@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="id">
 <head>
@@ -6,698 +5,209 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="theme-color" content="#0d6845">
 <title>RumaGo - Belanja Mudah</title>
-
 <style>
-:root{
---green:#0d6845;
---dark:#084b32;
---lime:#e5f5ec;
---ink:#183329;
---muted:#718078;
---line:#e8eee9;
---bg:#f6f8f6
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}
-button,input,select{font:inherit}
-button{cursor:pointer}
-header{background:var(--green);color:#fff;padding:16px;position:sticky;top:0;z-index:10}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.logo{font-size:23px;font-weight:800}
-.logo span{color:#c9f2d9}
-.location{font-size:12px;opacity:.9;margin-top:4px}
-.header-cart{background:#fff;color:var(--green);border:0;border-radius:12px;padding:10px 13px;font-weight:bold}
-.search-wrap{margin-top:14px}
-.search-wrap input{width:100%;border:0;border-radius:12px;padding:13px;outline:none}
-main{max-width:850px;margin:auto;padding:15px;padding-bottom:95px}
-.hero{background:linear-gradient(120deg,#0d6845,#1c9a65);color:#fff;border-radius:18px;padding:22px;margin-bottom:20px}
-.hero h2{margin:0 0 8px;font-size:23px}
-.hero p{margin:0;font-size:14px;line-height:1.5}
-.section-title{display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px}
-.section-title h3{margin:0;font-size:18px}
-.muted{color:var(--muted);font-size:12px}
-.categories{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}
+:root{--green:#0d6845;--dark:#084b32;--lime:#e5f5ec;--ink:#183329;--muted:#718078;--line:#e8eee9;--bg:#f6f8f6}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+header{background:var(--green);color:#fff;padding:15px;position:sticky;top:0;z-index:10}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}.logo{font-size:23px;font-weight:800}.logo span{color:#c9f2d9}
+.location{font-size:12px;opacity:.9;margin-top:4px}.header-cart{background:#fff;color:var(--green);border:0;border-radius:12px;padding:10px 13px;font-weight:bold}
+.search-wrap{margin-top:13px}.search-wrap input{width:100%;border:0;border-radius:12px;padding:13px;outline:none}
+main{max-width:850px;margin:auto;padding:15px;padding-bottom:100px}.hero{background:linear-gradient(120deg,#0d6845,#1c9a65);color:#fff;border-radius:18px;padding:22px;margin-bottom:20px}
+.hero h2{margin:0 0 8px;font-size:23px}.hero p{margin:0;font-size:14px;line-height:1.5}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px}.section-title h3{margin:0;font-size:18px}
+.muted{color:var(--muted);font-size:12px}.categories{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}
 .category{white-space:nowrap;border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 15px;border-radius:30px}
 .category.active{background:var(--green);color:#fff;border-color:var(--green)}
-.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.product{background:#fff;border-radius:15px;overflow:hidden;border:1px solid var(--line)}
-.product img{width:100%;height:135px;object-fit:cover;background:#edf2ee}
-.product-info{padding:11px}
-.product-name{font-size:14px;font-weight:bold;min-height:34px}
-.product-price{color:var(--green);font-weight:bold;margin:8px 0}
-.product-stock{font-size:11px;color:var(--muted)}
-.btn{border:0;border-radius:10px;background:var(--green);color:#fff;padding:11px 14px;font-weight:bold}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-light{background:var(--lime);color:var(--green)}
-.btn-block{width:100%;margin-top:8px}
+.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.product{background:#fff;border-radius:15px;overflow:hidden;border:1px solid var(--line);min-width:0}
+.product img{width:100%;height:135px;object-fit:cover;background:#edf2ee}.product-info{padding:11px}.product-name{font-size:14px;font-weight:bold;min-height:34px}
+.product-price{color:var(--green);font-weight:bold;margin:8px 0}.product-stock{font-size:11px;color:var(--muted)}
+.btn{border:0;border-radius:10px;background:var(--green);color:#fff;padding:11px 14px;font-weight:bold}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-light{background:var(--lime);color:var(--green)}.btn-block{width:100%;margin-top:8px}
 .card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px;margin-bottom:13px}
-.page{display:none}
-.page.active{display:block}
-.empty{text-align:center;color:var(--muted);padding:35px 15px}
-.form-group{margin-bottom:13px}
-.form-group label{display:block;font-size:13px;font-weight:bold;margin-bottom:6px}
-.form-group input,.form-group select{width:100%;border:1px solid #dce5de;border-radius:10px;padding:12px;outline:none;background:#fff}
-.form-group input:focus,.form-group select:focus{border-color:var(--green)}
+.page{display:none}.page.active{display:block}.empty{text-align:center;color:var(--muted);padding:35px 15px}
+.form-group{margin-bottom:13px}.form-group label{display:block;font-size:13px;font-weight:bold;margin-bottom:6px}
+.form-group input,.form-group select,.form-group textarea{width:100%;border:1px solid #dce5de;border-radius:10px;padding:12px;outline:none;background:#fff}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--green)}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:9px 3px calc(9px + env(safe-area-inset-bottom));z-index:20}
-.nav-btn{border:0;background:none;color:var(--muted);font-size:11px;min-width:58px;padding:5px}
-.nav-btn strong{display:block;font-size:19px;margin-bottom:3px}
-.nav-btn.active{color:var(--green);font-weight:bold}
-.qty{display:flex;align-items:center;gap:10px}
-.qty button{border:0;background:var(--lime);color:var(--green);width:30px;height:30px;border-radius:8px;font-weight:bold}
+.nav-btn{border:0;background:none;color:var(--muted);font-size:11px;min-width:58px;padding:5px}.nav-btn strong{display:block;font-size:19px;margin-bottom:3px}.nav-btn.active{color:var(--green);font-weight:bold}
+.qty{display:flex;align-items:center;gap:10px}.qty button{border:0;background:var(--lime);color:var(--green);width:30px;height:30px;border-radius:8px;font-weight:bold}
 .cart-row{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:12px 0}
-.total-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0}
-.notice{background:var(--lime);color:var(--dark);padding:12px;border-radius:10px;font-size:13px;margin-bottom:12px}
+.total-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0}.notice{background:var(--lime);color:var(--dark);padding:12px;border-radius:10px;font-size:13px;margin-bottom:12px}
 .status{display:inline-block;padding:5px 9px;background:var(--lime);color:var(--green);border-radius:20px;font-size:11px;font-weight:bold}
-hr{border:0;border-top:1px solid var(--line);margin:13px 0}
-.small-btn,.link-btn{border:0;background:none;color:var(--green);font-weight:bold;padding:8px 0}
-
-/* Panel GPS */
-.gps-panel{
-background:#f0f8f3;
-border:1px solid #cfe8d8;
-border-radius:12px;
-padding:13px;
-margin-bottom:14px
-}
-.gps-title{font-weight:bold;font-size:14px;margin-bottom:6px}
-.gps-description{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px}
-.gps-status{
-font-size:12px;
-line-height:1.5;
-margin-top:9px;
-color:var(--muted);
-overflow-wrap:anywhere
-}
-.gps-status.success{color:#08743f}
-.gps-status.error{color:#b42318}
-.gps-coordinates{
-font-size:12px;
-background:#fff;
-padding:9px;
-border-radius:8px;
-margin-top:8px;
-overflow-wrap:anywhere
-}
-
-@media(min-width:600px){
-.product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-.product img{height:160px}
-}
+hr{border:0;border-top:1px solid var(--line);margin:13px 0}.small-btn,.link-btn{border:0;background:none;color:var(--green);font-weight:bold;padding:8px 0}
+.gps-panel{background:#f0f8f3;border:1px solid #cfe8d8;border-radius:12px;padding:13px;margin-bottom:14px}
+.gps-title{font-weight:bold;font-size:14px;margin-bottom:6px}.gps-description{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.gps-status{font-size:12px;line-height:1.5;margin-top:9px;color:var(--muted);overflow-wrap:anywhere}.gps-status.success{color:#08743f}.gps-status.error{color:#b42318}
+.gps-coordinates{font-size:12px;background:#fff;padding:9px;border-radius:8px;margin-top:8px;overflow-wrap:anywhere}
+.toast{position:fixed;left:15px;right:15px;bottom:85px;background:#183329;color:white;padding:12px 15px;border-radius:10px;z-index:50;display:none;font-size:13px}
+@media(min-width:600px){.product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.product img{height:160px}}
 </style>
 </head>
-
 <body>
-
 <header>
-<div class="topbar">
-<div>
-<div class="logo">Ruma<span>Go</span></div>
-<div class="location">Belanja mudah, langsung ke rumah</div>
-</div>
-<button class="header-cart" onclick="showPage('cart')">
-🛒 Keranjang <span id="cartCount">0</span>
-</button>
-</div>
-<div class="search-wrap">
-<input id="searchInput" type="search" placeholder="Cari produk..." oninput="renderProducts()">
-</div>
+ <div class="topbar"><div><div class="logo">Ruma<span>Go</span></div><div class="location">Belanja mudah, langsung ke rumah</div></div>
+ <button class="header-cart" onclick="showPage('cart')">🛒 Keranjang <span id="cartCount">0</span></button></div>
+ <div class="search-wrap"><input id="searchInput" type="search" placeholder="Cari produk..." oninput="renderProducts()"></div>
 </header>
-
 <main>
-
 <section id="homePage" class="page active">
-<div class="hero">
-<h2>Selamat Datang di RumaGo!</h2>
-<p>Belanja kebutuhan harian dengan mudah. Pesan sekarang dan pilih pengiriman sesuai kebutuhan.</p>
-</div>
-
-<div class="section-title"><h3>Kategori Produk</h3></div>
-<div class="categories" id="categoryList"></div>
-
-<div class="section-title">
-<h3>Produk Pilihan</h3>
-<span class="muted" id="productCount"></span>
-</div>
-<div class="product-grid" id="productList"></div>
+ <div class="hero"><h2>Selamat Datang di RumaGo!</h2><p>Belanja kebutuhan harian dengan mudah. Pesan sekarang dan pilih pengiriman sesuai kebutuhan.</p></div>
+ <div class="section-title"><h3>Kategori Produk</h3></div><div class="categories" id="categoryList"></div>
+ <div class="section-title"><h3>Produk Pilihan</h3><span class="muted" id="productCount"></span></div>
+ <div class="product-grid" id="productList"><div class="empty">Menghubungkan katalog...</div></div>
 </section>
-
-<section id="cartPage" class="page">
-<div class="section-title"><h3>Keranjang Belanja</h3></div>
-<div class="card" id="cartContent"></div>
-</section>
-
-<section id="ordersPage" class="page">
-<div class="section-title"><h3>Riwayat Pesanan</h3></div>
-<div id="ordersContent"></div>
-</section>
-
-<section id="accountPage" class="page">
-<div class="section-title"><h3>Akun Saya</h3></div>
-<div id="accountContent"></div>
-</section>
-
+<section id="cartPage" class="page"><div class="section-title"><h3>Keranjang Belanja</h3></div><div class="card" id="cartContent"></div></section>
+<section id="ordersPage" class="page"><div class="section-title"><h3>Riwayat Pesanan</h3></div><div id="ordersContent"></div></section>
+<section id="accountPage" class="page"><div class="section-title"><h3>Akun Saya</h3></div><div id="accountContent"></div></section>
 </main>
-
 <nav class="bottom-nav">
-<button class="nav-btn active" id="navHome" onclick="showPage('home')"><strong>⌂</strong>Beranda</button>
-<button class="nav-btn" id="navCart" onclick="showPage('cart')"><strong>🛒</strong>Keranjang</button>
-<button class="nav-btn" id="navOrders" onclick="showPage('orders')"><strong>▤</strong>Pesanan</button>
-<button class="nav-btn" id="navAccount" onclick="showPage('account')"><strong>♙</strong>Akun</button>
+ <button class="nav-btn active" id="navHome" onclick="showPage('home')"><strong>⌂</strong>Beranda</button>
+ <button class="nav-btn" id="navCart" onclick="showPage('cart')"><strong>🛒</strong>Keranjang</button>
+ <button class="nav-btn" id="navOrders" onclick="showPage('orders')"><strong>▤</strong>Pesanan</button>
+ <button class="nav-btn" id="navAccount" onclick="showPage('account')"><strong>♙</strong>Akun</button>
 </nav>
+<div class="toast" id="toast"></div>
 
-<script>
-const products=[
-{id:1,name:"Beras Premium 5 Kg",category:"Sembako",price:75000,stock:30,image:"https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500"},
-{id:2,name:"Minyak Goreng 2 Liter",category:"Sembako",price:38000,stock:25,image:"https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500"},
-{id:3,name:"Gula Pasir 1 Kg",category:"Sembako",price:18000,stock:40,image:"https://images.unsplash.com/photo-1581441363689-1f3c3c414635?w=500"},
-{id:4,name:"Air Mineral 600 ml",category:"Minuman",price:4000,stock:100,image:"https://images.unsplash.com/photo-1564419320461-6870880221ad?w=500"},
-{id:5,name:"Kopi Kemasan",category:"Minuman",price:12000,stock:50,image:"https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=500"},
-{id:6,name:"Sabun Mandi",category:"Kebutuhan Rumah",price:8000,stock:60,image:"https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?w=500"},
-{id:7,name:"Deterjen Pakaian",category:"Kebutuhan Rumah",price:22000,stock:35,image:"https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?w=500"},
-{id:8,name:"Tisu Serbaguna",category:"Kebutuhan Rumah",price:15000,stock:45,image:"https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=500"}
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,updateProfile} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import {getFirestore,collection,doc,getDoc,setDoc,addDoc,onSnapshot,query,where,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+
+const firebaseConfig={
+ apiKey:"AIzaSyBumcRNnyr9XEv0-Un6RYOSmu8EexVk8qA",
+ authDomain:"rumago-a184f.firebaseapp.com",
+ projectId:"rumago-a184f",
+ storageBucket:"rumago-a184f.firebasestorage.app",
+ messagingSenderId:"7165099708",
+ appId:"1:7165099708:web:d50f10a116346bb99a1ab9"
+};
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
+const demoProducts=[
+{id:"demo-1",name:"Beras Premium 5 Kg",category:"Sembako",price:75000,stock:30,image:"https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500"},
+{id:"demo-2",name:"Minyak Goreng 2 Liter",category:"Sembako",price:38000,stock:25,image:"https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500"},
+{id:"demo-3",name:"Gula Pasir 1 Kg",category:"Sembako",price:18000,stock:40,image:"https://images.unsplash.com/photo-1581441363689-1f3c3c414635?w=500"},
+{id:"demo-4",name:"Air Mineral 600 ml",category:"Minuman",price:4000,stock:100,image:"https://images.unsplash.com/photo-1564419320461-6870880221ad?w=500"}
 ];
-
+let products=[],cart=readLocalArray("rg_cart"),orders=[],authUser=null,authMode="login",selectedCategory="Semua",checkoutLocation=null,busy=false,stopProducts=null,stopOrders=null;
 const categories=["Semua","Sembako","Minuman","Kebutuhan Rumah"];
-
-let selectedCategory="Semua";
-let cart=readLocalArray("rg_cart");
-let orders=[];
-let authUser=null;
-let authMode="login";
-let busy=false;
-
-// Menyimpan koordinat GPS checkout sementara
-let checkoutLocation=null;
-
-function readLocalArray(key){
-try{
-const v=JSON.parse(localStorage.getItem(key)||"[]");
-return Array.isArray(v)?v:[];
-}catch(e){return []}
+const $=id=>document.getElementById(id);
+function readLocalArray(key){try{const v=JSON.parse(localStorage.getItem(key)||"[]");return Array.isArray(v)?v:[]}catch(e){return []}}
+function rupiah(v){return "Rp "+Number(v||0).toLocaleString("id-ID")}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(window._rgToast);window._rgToast=setTimeout(()=>t.style.display="none",2600)}
+function saveCart(){localStorage.setItem("rg_cart",JSON.stringify(cart));updateCartCount()}
+function updateCartCount(){$("cartCount").textContent=cart.reduce((s,x)=>s+Number(x.qty||0),0)}
+function cartTotal(){return cart.reduce((s,x)=>s+Number(x.price||0)*Number(x.qty||0),0)}
+function getProductName(p){return p.name||p.title||p.productName||"Produk RumaGo"}
+function normalizeProduct(id,d){
+ const price=Number(d.price??d.salePrice??d.sellingPrice??d.harga??0);
+ const stock=Number(d.stock??d.stok??d.quantity??0);
+ return {id:String(id),name:getProductName(d),category:d.category||d.kategori||"Lainnya",price,stock,image:d.image||d.imageUrl||d.photo||d.photoUrl||d.gambar||"",active:d.active!==false&&d.isActive!==false};
 }
-
-function rupiah(v){
-return "Rp "+Number(v||0).toLocaleString("id-ID");
+function startProductListener(){
+ if(stopProducts)stopProducts();
+ stopProducts=onSnapshot(collection(db,"products"),snap=>{
+  const live=snap.docs.map(x=>normalizeProduct(x.id,x.data())).filter(p=>p.active);
+  products=live.length?live:demoProducts;
+  renderCategories();renderProducts();
+ },err=>{console.error(err);products=demoProducts;renderCategories();renderProducts();toast("Katalog online gagal dimuat. Menampilkan produk contoh.")});
 }
-
-function escapeHtml(v){
-return String(v??"").replace(/[&<>"']/g,c=>({
-"&":"&amp;",
-"<":"&lt;",
-">":"&gt;",
-'"':"&quot;",
-"'":"&#39;"
-}[c]));
-}
-
-function nativeReady(){
-return !!(window.Android&&typeof Android.getCurrentUser==="function");
-}
-
-function saveCart(){
-localStorage.setItem("rg_cart",JSON.stringify(cart));
-updateCartCount();
-}
-
-function updateCartCount(){
-document.getElementById("cartCount").textContent=
-cart.reduce((s,x)=>s+Number(x.qty||0),0);
-}
-
-function cartTotal(){
-return cart.reduce((s,x)=>s+Number(x.price)*Number(x.qty),0);
-}
-
 function showPage(page){
-document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
-document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));
-
-const p=document.getElementById(page+"Page");
-if(p)p.classList.add("active");
-
-const n=document.getElementById("nav"+page.charAt(0).toUpperCase()+page.slice(1));
-if(n)n.classList.add("active");
-
-if(page==="cart")renderCart();
-if(page==="orders")loadOrders();
-if(page==="account")renderAccount();
-
-window.scrollTo(0,0);
+ document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+ document.querySelectorAll(".nav-btn").forEach(x=>x.classList.remove("active"));
+ const p=$(page+"Page");if(p)p.classList.add("active");
+ const n=$("nav"+page.charAt(0).toUpperCase()+page.slice(1));if(n)n.classList.add("active");
+ if(page==="cart")renderCart();if(page==="orders")loadOrders();if(page==="account")renderAccount();window.scrollTo(0,0);
 }
-
 function renderCategories(){
-document.getElementById("categoryList").innerHTML=categories.map(c=>
-`<button class="category ${selectedCategory===c?"active":""}" onclick="selectCategory('${c}')">${c}</button>`
-).join("");
+ const cats=[...new Set([...categories,...products.map(p=>p.category).filter(Boolean)])];
+ $("categoryList").innerHTML=cats.map(c=>`<button class="category ${selectedCategory===c?"active":""}" onclick="selectCategory('${esc(c).replace(/'/g,"&#39;")}')">${esc(c)}</button>`).join("");
 }
-
-function selectCategory(c){
-selectedCategory=c;
-renderCategories();
-renderProducts();
-}
-
+function selectCategory(c){selectedCategory=c;renderCategories();renderProducts()}
 function renderProducts(){
-const key=document.getElementById("searchInput").value.toLowerCase();
-
-const list=products.filter(p=>
-(selectedCategory==="Semua"||p.category===selectedCategory)&&
-p.name.toLowerCase().includes(key)
-);
-
-document.getElementById("productCount").textContent=list.length+" produk";
-
-document.getElementById("productList").innerHTML=list.length?list.map(p=>`
-<div class="product">
-<img src="${p.image}" alt="${escapeHtml(p.name)}" onerror="this.src='https://placehold.co/400x300?text=RumaGo'">
-<div class="product-info">
-<div class="product-name">${escapeHtml(p.name)}</div>
-<div class="product-price">${rupiah(p.price)}</div>
-<div class="product-stock">Stok tersedia: ${p.stock}</div>
-<br>
-<button class="btn btn-block" onclick="addToCart(${p.id})">+ Keranjang</button>
-</div>
-</div>
-`).join(""):`<div class="empty">Produk tidak ditemukan.</div>`;
+ const key=($("searchInput")?.value||"").toLowerCase();
+ const list=products.filter(p=>(selectedCategory==="Semua"||p.category===selectedCategory)&&p.name.toLowerCase().includes(key));
+ $("productCount").textContent=list.length+" produk";
+ $("productList").innerHTML=list.length?list.map(p=>`<div class="product"><img src="${esc(p.image||"https://placehold.co/400x300?text=RumaGo")}" alt="${esc(p.name)}" onerror="this.src='https://placehold.co/400x300?text=RumaGo'"><div class="product-info"><div class="product-name">${esc(p.name)}</div><div class="product-price">${rupiah(p.price)}</div><div class="product-stock">Stok tersedia: ${p.stock}</div><button class="btn btn-block" onclick="addToCart('${esc(p.id)}')" ${p.stock<=0?"disabled":""}>+ Keranjang</button></div></div>`).join(""):`<div class="empty">Produk tidak ditemukan.</div>`;
 }
-
 function addToCart(id){
-const p=products.find(x=>x.id===id);
-if(!p)return;
-
-const old=cart.find(x=>x.id===id);
-
-if(old){
-if(old.qty>=p.stock){
-alert("Jumlah melebihi stok tersedia.");
-return;
+ const p=products.find(x=>x.id===String(id));if(!p)return;
+ const old=cart.find(x=>String(x.id)===String(id));
+ if(old){if(old.qty>=p.stock){toast("Jumlah melebihi stok tersedia.");return}old.qty++}
+ else cart.push({...p,qty:1});
+ saveCart();toast(p.name+" ditambahkan ke keranjang.");
 }
-old.qty++;
-}else{
-cart.push({...p,qty:1});
-}
-
-saveCart();
-alert(p.name+" ditambahkan ke keranjang.");
-}
-
 function changeQty(id,n){
-const x=cart.find(a=>a.id===id);
-if(!x)return;
-
-x.qty+=n;
-const p=products.find(a=>a.id===id);
-
-if(x.qty<=0)cart=cart.filter(a=>a.id!==id);
-else if(p&&x.qty>p.stock){
-x.qty=p.stock;
-alert("Jumlah melebihi stok tersedia.");
+ const x=cart.find(a=>String(a.id)===String(id));if(!x)return;
+ const p=products.find(a=>String(a.id)===String(id));x.qty+=n;
+ if(x.qty<=0)cart=cart.filter(a=>String(a.id)!==String(id));
+ else if(p&&x.qty>p.stock){x.qty=p.stock;toast("Jumlah melebihi stok tersedia.")}
+ saveCart();renderCart();
 }
-
-saveCart();
-renderCart();
-}
-
-function removeCartItem(id){
-cart=cart.filter(x=>x.id!==id);
-saveCart();
-renderCart();
-}
-
+function removeCartItem(id){cart=cart.filter(x=>String(x.id)!==String(id));saveCart();renderCart()}
 function renderCart(){
-const c=document.getElementById("cartContent");
-
-if(!cart.length){
-checkoutLocation=null;
-c.innerHTML=`
-<div class="empty">
-<div style="font-size:40px">🛒</div>
-<h3>Keranjang masih kosong</h3>
-<p>Silakan pilih produk terlebih dahulu.</p>
-<button class="btn" onclick="showPage('home')">Mulai Belanja</button>
-</div>`;
-return;
+ const c=$("cartContent");
+ if(!cart.length){checkoutLocation=null;c.innerHTML=`<div class="empty"><div style="font-size:40px">🛒</div><h3>Keranjang masih kosong</h3><p>Silakan pilih produk terlebih dahulu.</p><button class="btn" onclick="showPage('home')">Mulai Belanja</button></div>`;return}
+ c.innerHTML=cart.map(x=>`<div class="cart-row"><div style="flex:1"><b>${esc(x.name)}</b><div class="muted">${rupiah(x.price)} / produk</div><b style="color:var(--green)">${rupiah(x.price*x.qty)}</b></div><div><div class="qty"><button onclick="changeQty('${esc(x.id)}',-1)">−</button><b>${x.qty}</b><button onclick="changeQty('${esc(x.id)}',1)">+</button></div><button class="small-btn" onclick="removeCartItem('${esc(x.id)}')">Hapus</button></div></div>`).join("")+`<hr><div class="total-row"><span>Total belanja</span><b style="color:var(--green)">${rupiah(cartTotal())}</b></div><button class="btn btn-block" onclick="checkout()">Lanjut Checkout</button>`;
 }
-
-c.innerHTML=cart.map(x=>`
-<div class="cart-row">
-<div style="flex:1">
-<b>${escapeHtml(x.name)}</b>
-<div class="muted">${rupiah(x.price)} / produk</div>
-<b style="color:var(--green)">${rupiah(x.price*x.qty)}</b>
-</div>
-<div>
-<div class="qty">
-<button onclick="changeQty(${x.id},-1)">−</button>
-<b>${x.qty}</b>
-<button onclick="changeQty(${x.id},1)">+</button>
-</div>
-<button class="small-btn" onclick="removeCartItem(${x.id})">Hapus</button>
-</div>
-</div>
-`).join("")+
-`
-<hr>
-<div class="total-row">
-<span>Total belanja</span>
-<b style="color:var(--green)">${rupiah(cartTotal())}</b>
-</div>
-<button class="btn btn-block" onclick="checkout()">Lanjut Checkout</button>`;
-}
-
 function checkout(){
-if(!cart.length){
-alert("Keranjang masih kosong.");
-return;
+ if(!cart.length){toast("Keranjang masih kosong.");return}
+ if(!authUser){toast("Silakan login terlebih dahulu.");showPage("account");return}
+ checkoutLocation=null;
+ $("cartContent").innerHTML=`<h3>Data Pengiriman</h3>
+ <div class="form-group"><label>Nama Penerima</label><input id="checkoutName" value="${esc(authUser.name||"")}" placeholder="Nama penerima"></div>
+ <div class="form-group"><label>Nomor HP</label><input id="checkoutPhone" value="${esc(authUser.phone||"")}" placeholder="08xxxxxxxxxx" type="tel"></div>
+ <div class="gps-panel"><div class="gps-title">📍 Lokasi Pengiriman</div><div class="gps-description">Gunakan GPS HP untuk menentukan titik lokasi rumah atau tempat penerimaan pesanan Anda.</div><button type="button" class="btn btn-block" id="gpsButton" onclick="getCheckoutLocation()">📍 Gunakan Lokasi GPS Saya</button><div id="gpsStatus" class="gps-status">Lokasi belum dipilih. Anda juga dapat mengisi alamat secara manual.</div><div id="gpsCoordinates" class="gps-coordinates" style="display:none"></div></div>
+ <div class="form-group"><label>Alamat Lengkap</label><input id="checkoutAddress" placeholder="Jalan, nomor rumah, RT/RW, kecamatan"></div>
+ <div class="form-group"><label>Kota Pengiriman</label><input id="checkoutCity" placeholder="Kota tujuan"></div>
+ <div class="form-group"><label>Jenis Pengiriman</label><select id="deliveryType"><option value="Instant">Instant</option><option value="Terjadwal">Terjadwal</option></select></div>
+ <div class="form-group"><label>Catatan Pesanan</label><textarea id="checkoutNote" rows="2" placeholder="Opsional"></textarea></div><hr>
+ <div class="total-row"><span>Total pembayaran</span><b style="color:var(--green)">${rupiah(cartTotal())}</b></div>
+ <div class="notice">Pesanan dan koordinat GPS (jika dipilih) akan disimpan ke database RumaGo.</div>
+ <button class="btn btn-block" id="orderButton" onclick="submitOrder()">Buat Pesanan</button><button class="btn btn-light btn-block" onclick="renderCart()">Kembali ke Keranjang</button>`;
 }
-
-if(!authUser){
-alert("Silakan login terlebih dahulu.");
-showPage("account");
-return;
-}
-
-checkoutLocation=null;
-
-document.getElementById("cartContent").innerHTML=`
-<h3>Data Pengiriman</h3>
-
-<div class="form-group">
-<label>Nama Penerima</label>
-<input id="checkoutName" value="${escapeHtml(authUser.name||"")}" placeholder="Nama penerima">
-</div>
-
-<div class="form-group">
-<label>Nomor HP</label>
-<input id="checkoutPhone" value="${escapeHtml(authUser.phone||"")}" placeholder="08xxxxxxxxxx" type="tel">
-</div>
-
-<!-- Fitur GPS -->
-<div class="gps-panel">
-<div class="gps-title">📍 Lokasi Pengiriman</div>
-<div class="gps-description">
-Gunakan GPS HP untuk menentukan titik lokasi rumah atau tempat penerimaan pesanan Anda.
-</div>
-
-<button type="button" class="btn btn-block" id="gpsButton" onclick="getCheckoutLocation()">
-📍 Gunakan Lokasi GPS Saya
-</button>
-
-<div id="gpsStatus" class="gps-status">
-Lokasi belum dipilih. Anda juga dapat mengisi alamat secara manual.
-</div>
-
-<div id="gpsCoordinates" class="gps-coordinates" style="display:none"></div>
-</div>
-
-<div class="form-group">
-<label>Alamat Lengkap</label>
-<input id="checkoutAddress" placeholder="Jalan, nomor rumah, RT/RW, kecamatan">
-</div>
-
-<div class="form-group">
-<label>Kota Pengiriman</label>
-<input id="checkoutCity" placeholder="Kota tujuan">
-</div>
-
-<div class="form-group">
-<label>Jenis Pengiriman</label>
-<select id="deliveryType">
-<option value="Instant">Instant</option>
-<option value="Terjadwal">Terjadwal</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Catatan Pesanan</label>
-<input id="checkoutNote" placeholder="Opsional">
-</div>
-
-<hr>
-
-<div class="total-row">
-<span>Total pembayaran</span>
-<b style="color:var(--green)">${rupiah(cartTotal())}</b>
-</div>
-
-<div class="notice">
-Pesanan dan koordinat GPS (jika dipilih) akan disimpan ke database RumaGo.
-</div>
-
-<button class="btn btn-block" id="orderButton" onclick="submitOrder()">
-Buat Pesanan
-</button>
-
-<button class="btn btn-light btn-block" onclick="renderCart()">
-Kembali ke Keranjang
-</button>
-`;
-}
-
-// Mengambil lokasi GPS pelanggan
+function setGpsStatus(message,type){const s=$("gpsStatus");if(s){s.className="gps-status"+(type?" "+type:"");s.textContent=message}}
 function getCheckoutLocation(){
-
-if(!navigator.geolocation){
-setGpsStatus("Browser aplikasi tidak mendukung GPS. Silakan isi alamat manual.","error");
-return;
+ if(!navigator.geolocation){setGpsStatus("Perangkat tidak mendukung GPS. Silakan isi alamat manual.","error");return}
+ const b=$("gpsButton");if(b){b.disabled=true;b.textContent="Mengambil lokasi..."}
+ setGpsStatus("Sedang mencari lokasi. Pastikan GPS HP aktif dan izin lokasi diberikan.","");
+ navigator.geolocation.getCurrentPosition(pos=>{
+  checkoutLocation={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy};
+  const lat=checkoutLocation.latitude,lng=checkoutLocation.longitude;
+  setGpsStatus("Lokasi berhasil ditemukan. Pastikan titik ini sesuai dengan lokasi pengiriman.","success");
+  $("gpsCoordinates").style.display="block";
+  $("gpsCoordinates").innerHTML=`<b>Latitude:</b> ${lat.toFixed(6)}<br><b>Longitude:</b> ${lng.toFixed(6)}<br><b>Akurasi:</b> ${Math.round(checkoutLocation.accuracy)} meter<br><a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank">Lihat di Google Maps</a>`;
+  if(b){b.disabled=false;b.textContent="📍 Perbarui Lokasi GPS"}
+ },err=>{
+  const msg=err.code===1?"Izin lokasi ditolak. Aktifkan izin lokasi aplikasi RumaGo di pengaturan HP.":err.code===2?"Lokasi tidak tersedia. Aktifkan GPS dan periksa sinyal perangkat.":err.code===3?"Waktu pencarian habis. Coba lagi di area terbuka.":"Lokasi gagal diperoleh.";
+  checkoutLocation=null;setGpsStatus(msg,"error");if(b){b.disabled=false;b.textContent="📍 Coba Ambil Lokasi Lagi"}
+ },{enableHighAccuracy:true,timeout:25000,maximumAge:0});
 }
-
-if(!nativeReady()){
-setGpsStatus("Silakan gunakan aplikasi RumaGo Android untuk mengambil lokasi GPS.","error");
-return;
+async function submitOrder(){
+ if(busy)return;
+ const name=$("checkoutName").value.trim(),phone=$("checkoutPhone").value.trim(),address=$("checkoutAddress").value.trim(),city=$("checkoutCity").value.trim();
+ if(!name||!phone||!address||!city){toast("Mohon lengkapi nama, nomor HP, alamat, dan kota.");return}
+ if(!auth.currentUser){toast("Silakan login kembali.");showPage("account");return}
+ const button=$("orderButton");busy=true;if(button){button.disabled=true;button.textContent="Menyimpan pesanan..."}
+ try{
+  const items=cart.map(x=>({id:String(x.id),name:x.name,price:Number(x.price),qty:Number(x.qty)}));
+  const payload={customerId:auth.currentUser.uid,customerName:name,phone,address,city,delivery:$("deliveryType").value,note:$("checkoutNote").value.trim(),items,total:cartTotal(),status:"Menunggu Konfirmasi",latitude:checkoutLocation?.latitude??null,longitude:checkoutLocation?.longitude??null,createdAt:serverTimestamp()};
+  await addDoc(collection(db,"orders"),payload);
+  cart=[];saveCart();checkoutLocation=null;toast("Pesanan berhasil dibuat.");showPage("orders");
+ }catch(e){console.error(e);toast("Pesanan gagal disimpan: "+(e.message||"Periksa koneksi internet."));if(button){button.disabled=false;button.textContent="Buat Pesanan"}}
+ finally{busy=false}
 }
-
-const button=document.getElementById("gpsButton");
-if(button){
-button.disabled=true;
-button.textContent="Mengambil lokasi...";
-}
-
-setGpsStatus("Sedang mencari lokasi Anda. Pastikan GPS HP aktif dan izin lokasi diberikan.","");
-
-navigator.geolocation.getCurrentPosition(
-
-function(position){
-
-checkoutLocation={
-latitude:position.coords.latitude,
-longitude:position.coords.longitude,
-accuracy:position.coords.accuracy
-};
-
-const lat=checkoutLocation.latitude;
-const lng=checkoutLocation.longitude;
-const accuracy=Math.round(checkoutLocation.accuracy);
-
-setGpsStatus(
-"Lokasi berhasil ditemukan. Pastikan titik ini sesuai dengan lokasi pengiriman.",
-"success"
-);
-
-const coordinateBox=document.getElementById("gpsCoordinates");
-
-if(coordinateBox){
-coordinateBox.style.display="block";
-coordinateBox.innerHTML=`
-<b>Latitude:</b> ${lat.toFixed(6)}<br>
-<b>Longitude:</b> ${lng.toFixed(6)}<br>
-<b>Perkiraan akurasi:</b> ${accuracy} meter<br>
-<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">
-Lihat titik lokasi di Google Maps
-</a>`;
-}
-
-if(button){
-button.disabled=false;
-button.textContent="📍 Perbarui Lokasi GPS";
-}
-
-},
-
-function(error){
-
-checkoutLocation=null;
-
-let message="Lokasi gagal diperoleh. Silakan coba kembali.";
-
-if(error.code===1){
-message="Izin lokasi ditolak. Aktifkan izin lokasi untuk aplikasi RumaGo melalui pengaturan HP.";
-}else if(error.code===2){
-message="Lokasi tidak tersedia. Aktifkan GPS dan periksa sinyal perangkat.";
-}else if(error.code===3){
-message="Waktu pencarian lokasi habis. Coba lagi di area terbuka.";
-}
-
-setGpsStatus(message,"error");
-
-if(button){
-button.disabled=false;
-button.textContent="📍 Coba Ambil Lokasi Lagi";
-}
-
-},
-
-{
-enableHighAccuracy:true,
-timeout:25000,
-maximumAge:0
-}
-
-);
-}
-
-function setGpsStatus(message,type){
-const status=document.getElementById("gpsStatus");
-if(!status)return;
-
-status.className="gps-status"+(type?" "+type:"");
-status.textContent=message;
-}
-
-function submitOrder(){
-
-if(busy)return;
-
-const name=document.getElementById("checkoutName").value.trim();
-const phone=document.getElementById("checkoutPhone").value.trim();
-const address=document.getElementById("checkoutAddress").value.trim();
-const city=document.getElementById("checkoutCity").value.trim();
-const delivery=document.getElementById("deliveryType").value;
-const note=document.getElementById("checkoutNote").value.trim();
-
-if(!name||!phone||!address||!city){
-alert("Mohon lengkapi nama, nomor HP, alamat, dan kota.");
-return;
-}
-
-if(!nativeReady()){
-alert("Fitur database hanya tersedia melalui aplikasi RumaGo Android.");
-return;
-}
-
-const order={
-customerName:name,
-phone:phone,
-address:address,
-city:city,
-delivery:delivery,
-note:note,
-
-items:cart.map(x=>({
-id:x.id,
-name:x.name,
-price:x.price,
-qty:x.qty
-})),
-
-total:cartTotal(),
-status:"Menunggu Konfirmasi",
-
-// Koordinat GPS dikirim jika pelanggan sudah mengambil lokasi.
-latitude:checkoutLocation?checkoutLocation.latitude:null,
-longitude:checkoutLocation?checkoutLocation.longitude:null
-};
-
-busy=true;
-
-const button=document.getElementById("orderButton");
-if(button){
-button.disabled=true;
-button.textContent="Menyimpan pesanan...";
-}
-
-Android.createOrder(JSON.stringify(order));
-}
-
 function loadOrders(){
-
-const c=document.getElementById("ordersContent");
-
-if(!authUser){
-c.innerHTML=`<div class="card empty">Silakan login untuk melihat riwayat pesanan.</div>`;
-return;
+ const c=$("ordersContent");
+ if(!authUser){c.innerHTML=`<div class="card empty">Silakan login untuk melihat riwayat pesanan.</div>`;return}
+ c.innerHTML=`<div class="card empty">Memuat riwayat pesanan...</div>`;
+ if(stopOrders)stopOrders();
+ stopOrders=onSnapshot(query(collection(db,"orders"),where("customerId","==",authUser.uid)),snap=>{
+  orders=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));renderOrders(orders);
+ },err=>{console.error(err);c.innerHTML=`<div class="card empty">Riwayat pesanan gagal dimuat. ${esc(err.message)}</div>`});
 }
-
-c.innerHTML=`<div class="card empty">Memuat riwayat pesanan...</div>`;
-
-if(nativeReady()){
-Android.getMyOrders();
-}else{
-c.innerHTML=`<div class="card empty">Riwayat tersedia di aplikasi RumaGo.</div>`;
-}
-}
-
 function renderOrders(list){
-
-const c=document.getElementById("ordersContent");
-orders=Array.isArray(list)?list:[];
-
-if(!orders.length){
-c.innerHTML=`
-<div class="card empty">
-<div style="font-size:40px">📦</div>
-<h3>Belum ada pesanan</h3>
-<p>Pesanan Anda akan tampil di sini.</p>
-</div>`;
-return;
-}
-
-c.innerHTML=orders.map(o=>`
-
-<div class="card">
-
-<div style="display:flex;justify-content:space-between;gap:8px">
-<b>${escapeHtml(o.orderNumber||o.id||"Pesanan")}</b>
-<span class="status">${escapeHtml(o.status||"Diproses")}</span>
-</div>
-
-<p class="muted">${escapeHtml(o.createdAt||"")}</p>
-
-<hr>
-
-${(o.items||[]).map(i=>`
-<div class="total-row">
-<span>${escapeHtml(i.name)} x ${Number(i.qty||0)}</span>
-<b>${rupiah(Number(i.price||0)*Number(i.qty||0))}</b>
-</div>
-`).join("")}
-
-<hr>
-
-<div class="total-row">
-<b>Total</b>
-<b style="color:var(--green)">${rupiah(o.total)}</b>
-</div>
-
-<p class="muted">Pengiriman: ${escapeHtml(o.delivery||"-")}</p>
-<p class="muted">Alamat: ${escapeHtml(o.address||"-")}, ${escapeHtml(o.city||"-")}</p>
-
-${o.latitude!=null&&o.longitude!=null?`
-<p class="muted">
-📍 Lokasi GPS tersedia
-<br>
-<a href="https://www.google.com/maps?q=${Number(o.latitude)},${Number(o.longitude)}" target="_blank" rel="noopener">
-Lihat lokasi pengiriman
-</a>
-</p>`:""}
-
-</div>
-
-`).join("");
-}
-
-function renderAccount(){
-
-const c=document.getElementById("accountContent");
-
-if(authUser){
-
-c.innerHTML=`
-<div class="card">
-<div style="font-size:40px;text-align:center">👤</div>
-
-<h3 style="text-align:center">
-${escapeHtml(authUser.name||"Pelanggan RumaGo")}
-</h3>
-
-<p class="
+ const c=$("ordersContent");orders=Array.isArray(list)?list:[];
+ if(!orders.length){c.innerHTML=`<div class="card empty"><div style="font-size:40px">📦</div><h3>Belum ada pesanan</h3><p>Pesanan Anda akan tampil di sini.</p></div>`;return}
+ c.innerHTML=orders.map(o=>`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(o.orderNumber||o.id||"Pesanan")}</b><span class="status">${esc(o.status||"Diproses")}</span></div><p class="muted">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("id-ID"):""}</p><hr>${(o.items||[]).map(i=>`<di
