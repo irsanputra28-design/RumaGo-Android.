@@ -44,7 +44,6 @@ jobs:
       - name: Update MainActivity Kotlin
         run: |
           set -e
-
           test -f rumago-MainActivity.kt
 
           mkdir -p RumaGo_Android_Project/app/src/main/java/id/rumago/app
@@ -69,6 +68,9 @@ jobs:
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
               <application
                   android:allowBackup="false"
                   android:label="RumaGo"
@@ -90,7 +92,7 @@ jobs:
           </manifest>
           EOF
 
-          echo "Manifest berhasil diperbarui."
+          echo "Manifest dan izin GPS berhasil disiapkan."
 
       - name: Update RumaGo Account Page
         run: |
