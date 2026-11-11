@@ -245,38 +245,49 @@ function authError(e){
  if(code.includes("network-request-failed"))return "Koneksi internet bermasalah.";
  return e?.message||"Proses akun gagal. Coba lagi.";
 }
+
 async function saveProfile(){
- if(!auth.currentUser)return;
- const name=$("profileName").value.trim(),phone=$("profilePhone").value.trim();
- if(!name){toast("Nama tidak boleh kosong.");return}
+ if(!auth.currentUser){
+  toast("Silakan login terlebih dahulu.");
+  return;
+ }
+
+ const btn=document.querySelector('[onclick="saveProfile()"]');
+ const name=$("profileName").value.trim();
+ const phone=$("profilePhone").value.trim();
+
+ if(!name){
+  toast("Nama tidak boleh kosong.");
+  return;
+ }
+
+ if(btn) btn.disabled=true;
+
  try{
-  await setDoc(doc(db,"users",auth.currentUser.uid),{name,phone,email:auth.currentUser.email,role:authUser?.role||"customer"},{merge:true});
-  authUser={...authUser,name,phone};toast("Profil berhasil disimpan.");renderAccount();
- }catch(e){console.error(e);toast("Profil gagal disimpan: "+e.message)}
+  const uid=auth.currentUser.uid;
+
+  await setDoc(doc(db,"users",uid),{
+   name:name,
+   phone:phone,
+   email:auth.currentUser.email,
+   role:authUser?.role||"customer"
+  },{merge:true});
+
+  authUser={
+   ...authUser,
+   uid:uid,
+   name:name,
+   phone:phone
+  };
+
+  renderAccount();
+  toast("Profil berhasil disimpan.");
+
+ }catch(e){
+  console.error("Simpan profil:",e);
+  toast("Profil gagal disimpan: "+e.message);
+ }finally{
+  if(btn) btn.disabled=false;
+ }
 }
-async function logoutUser(){
- try{if(stopOrders){stopOrders();stopOrders=null}await signOut(auth);toast("Anda sudah keluar.");showPage("home")}
- catch(e){toast("Gagal keluar: "+e.message)}
-}
-onAuthStateChanged(auth,async user=>{
- if(stopOrders){stopOrders();stopOrders=null}
- if(user){
-  try{
-   const snap=await getDoc(doc(db,"users",user.uid));
-   const data=snap.exists()?snap.data():{};
-   authUser={uid:user.uid,email:user.email,name:data.name||user.displayName||"",phone:data.phone||"",role:data.role||"customer"};
-  }catch(e){console.error("Profil:",e);authUser={uid:user.uid,email:user.email,name:user.displayName||"",phone:"",role:"customer"}}
- }else authUser=null;
- if($("accountPage").classList.contains("active"))renderAccount();
-});
-Object.assign(window,{
- showPage,renderProducts,selectCategory,addToCart,changeQty,removeCartItem,checkout,
- getCheckoutLocation,submitOrder,renderCart,toggleAuthMode,submitAuth,saveProfile,logoutUser
-});
-updateCartCount();
-renderCategories();
-renderProducts();
-startProductListener();
-</script>
-</body>
-</html>
+
