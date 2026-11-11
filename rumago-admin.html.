@@ -1,0 +1,499 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d6845">
+<title>RumaGo Admin</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f7f4;color:#183329;font-family:Arial,sans-serif}
+header{background:#0d6845;color:white;padding:20px}
+header h2{margin:0}
+header p{font-size:13px;margin:6px 0 0}
+main{max-width:950px;margin:auto;padding:15px}
+.card{background:white;border-radius:13px;padding:16px;margin-bottom:15px;box-shadow:0 2px 9px #00000008}
+h3{margin:0 0 14px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #dce7df;border-radius:8px;margin:6px 0 12px;font-size:14px;background:white}
+label{font-size:13px;font-weight:bold}
+button{border:0;border-radius:8px;padding:11px 14px;font-weight:bold;cursor:pointer}
+.primary{background:#0d6845;color:white}
+.light{background:#e6f3eb;color:#0d6845}
+.danger{background:#fff0f0;color:#c62828}
+.full{width:100%}
+.hidden{display:none!important}
+.muted{font-size:12px;color:#718078}
+.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:14px}
+.tabs button{white-space:nowrap;background:#e6f3eb;color:#0d6845}
+.tabs button.active{background:#0d6845;color:white}
+.product,.order{border-bottom:1px solid #e7eee9;padding:13px 0}
+.product{display:flex;gap:12px;align-items:center}
+.product img{width:68px;height:68px;object-fit:cover;border-radius:8px;background:#eee}
+.info{flex:1;min-width:0}
+.actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.actions button{font-size:12px;padding:8px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
+.stat{background:#e7f3eb;padding:14px;border-radius:10px}
+.stat strong{display:block;color:#0d6845;font-size:22px}
+.badge{display:inline-block;background:#e7f3eb;color:#0d6845;padding:5px 8px;border-radius:20px;font-size:11px}
+#message,#loginMessage{font-size:13px;margin-top:10px;white-space:pre-wrap}
+a{color:#0d6845;font-weight:bold}
+</style>
+</head>
+<body>
+<header>
+<h2>RumaGo Admin</h2>
+<p>Panel pengelolaan toko dan pengiriman</p>
+</header>
+
+<main>
+<section id="login" class="card">
+<h3>Login Admin</h3>
+<label>Email</label>
+<input id="email" type="email" placeholder="Email admin">
+<label>Password</label>
+<input id="password" type="password" placeholder="Password">
+<button id="loginBtn" class="primary full">Masuk Admin</button>
+<div id="loginMessage"></div>
+</section>
+
+<section id="dashboard" class="hidden">
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+<div><b>Dashboard RumaGo</b><div class="muted" id="adminEmail"></div></div>
+<button id="logoutBtn" class="danger">Keluar</button>
+</div>
+</div>
+
+<div class="stats">
+<div class="stat">Total Produk<strong id="totalProducts">0</strong></div>
+<div class="stat">Total Stok<strong id="totalStock">0</strong></div>
+<div class="stat">Total Pesanan<strong id="totalOrders">0</strong></div>
+<div class="stat">Pesanan Baru<strong id="newOrders">0</strong></div>
+</div>
+
+<div class="tabs">
+<button class="active" data-tab="products">Produk</button>
+<button data-tab="orders">Pesanan & Kurir</button>
+</div>
+
+<section id="productsPanel">
+<div class="card">
+<h3 id="formTitle">Tambah Produk</h3>
+<form id="productForm">
+<label>Nama barang *</label>
+<input id="pName" required placeholder="Contoh: Beras Premium 5 Kg">
+
+<label>Kategori *</label>
+<select id="pCategory" required>
+<option value="">Pilih kategori</option>
+<option>Sembako</option>
+<option>Minuman</option>
+<option>Makanan</option>
+<option>Perlengkapan Rumah</option>
+<option>Perawatan Tubuh</option>
+<option>Elektronik</option>
+<option>Lainnya</option>
+</select>
+
+<label>Harga jual (Rp) *</label>
+<input id="pPrice" type="number" min="0" required>
+
+<label>Stok *</label>
+<input id="pStock" type="number" min="0" required>
+
+<label>URL foto produk</label>
+<input id="pImage" type="url" placeholder="https://alamat-foto.jpg">
+
+<label>Deskripsi</label>
+<textarea id="pDescription" rows="3"></textarea>
+
+<button class="primary full" id="saveProduct">Simpan Produk</button>
+<button class="light full hidden" type="button" id="cancelEdit" style="margin-top:8px">Batal Edit</button>
+</form>
+<div id="message"></div>
+</div>
+
+<div class="card">
+<h3>Katalog Produk</h3>
+<input id="searchProduct" placeholder="Cari produk...">
+<div id="productList">Memuat produk...</div>
+</div>
+</section>
+
+<section id="ordersPanel" class="hidden">
+<div class="card">
+<h3>Pesanan Pelanggan</h3>
+<p class="muted">Lokasi GPS ditampilkan jika pelanggan sudah mengirimkan koordinat saat checkout.</p>
+<div id="orderList">Memuat pesanan...</div>
+</div>
+</section>
+</section>
+</main>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import {
+ getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,getDoc,
+ onSnapshot,serverTimestamp
+} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+
+const firebaseConfig={
+ apiKey:"AIzaSyBumcRNnyr9XEv0-Un6RYOSmu8EexVk8qA",
+ authDomain:"rumago-a184f.firebaseapp.com",
+ projectId:"rumago-a184f",
+ storageBucket:"rumago-a184f.firebasestorage.app",
+ messagingSenderId:"7165099708",
+ appId:"1:7165099708:web:d50f10a116346bb99a1ab9"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
+
+const $=id=>document.getElementById(id);
+let products=[];
+let orders=[];
+let couriers=[];
+let editingId=null;
+let stopProducts=null;
+let stopOrders=null;
+let stopUsers=null;
+
+const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n||0));
+
+function message(text,ok=false){
+ $("message").textContent=text;
+ $("message").style.color=ok?"#0d6845":"#c62828";
+}
+
+$("loginBtn").onclick=async()=>{
+ $("loginMessage").textContent="Memeriksa akun...";
+ try{
+  await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value);
+ }catch(e){
+  $("loginMessage").textContent="Login gagal: "+e.message;
+ }
+};
+
+onAuthStateChanged(auth,async user=>{
+ stopProducts?.();stopOrders?.();stopUsers?.();
+ stopProducts=stopOrders=stopUsers=null;
+
+ if(!user){
+  $("login").classList.remove("hidden");
+  $("dashboard").classList.add("hidden");
+  return;
+ }
+
+ try{
+  const profile=await getDoc(doc(db,"users",user.uid));
+  if(!profile.exists()||profile.data().role!=="admin"){
+   await signOut(auth);
+   $("loginMessage").textContent="Akses ditolak. Akun bukan admin.";
+   return;
+  }
+
+  $("login").classList.add("hidden");
+  $("dashboard").classList.remove("hidden");
+  $("adminEmail").textContent=user.email||"";
+
+  watchProducts();
+  watchOrders();
+  watchUsers();
+ }catch(e){
+  await signOut(auth);
+  $("loginMessage").textContent="Gagal memeriksa akun: "+e.message;
+ }
+});
+
+$("logoutBtn").onclick=()=>signOut(auth);
+
+document.querySelectorAll("[data-tab]").forEach(btn=>{
+ btn.onclick=()=>{
+  document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  const isProducts=btn.dataset.tab==="products";
+  $("productsPanel").classList.toggle("hidden",!isProducts);
+  $("ordersPanel").classList.toggle("hidden",isProducts);
+ };
+});
+
+function watchProducts(){
+ stopProducts=onSnapshot(collection(db,"products"),snap=>{
+  products=snap.docs.map(d=>({id:d.id,...d.data()}));
+  renderProducts();
+ },e=>message("Gagal membaca produk: "+e.message));
+}
+
+function renderProducts(){
+ $("totalProducts").textContent=products.length;
+ $("totalStock").textContent=products.reduce((n,p)=>n+Number(p.stock||0),0);
+ const key=$("searchProduct").value.toLowerCase();
+ const list=products.filter(p=>String(p.name||"").toLowerCase().includes(key));
+ $("productList").replaceChildren();
+
+ if(!list.length){
+  $("productList").textContent="Belum ada produk.";
+  return;
+ }
+
+ list.forEach(p=>{
+  const row=document.createElement("div");
+  row.className="product";
+  const img=document.createElement("img");
+  img.src=p.image||"";
+  img.alt=p.name||"Produk";
+  img.onerror=()=>img.style.display="none";
+
+  const info=document.createElement("div");
+  info.className="info";
+  const name=document.createElement("b");
+  name.textContent=p.name||"Tanpa nama";
+  const detail=document.createElement("div");
+  detail.className="muted";
+  detail.textContent=(p.category||"Lainnya")+" • "+money(p.price)+" • Stok "+(p.stock||0);
+
+  const actions=document.createElement("div");
+  actions.className="actions";
+  const edit=document.createElement("button");
+  edit.className="light";edit.textContent="Edit";
+  edit.onclick=()=>editProduct(p.id);
+  const del=document.createElement("button");
+  del.className="danger";del.textContent="Hapus";
+  del.onclick=()=>removeProduct(p.id);
+
+  actions.append(edit,del);
+  info.append(name,detail,actions);
+  row.append(img,info);
+  $("productList").append(row);
+ });
+}
+
+$("searchProduct").oninput=renderProducts;
+
+$("productForm").onsubmit=async e=>{
+ e.preventDefault();
+ const data={
+  name:$("pName").value.trim(),
+  category:$("pCategory").value,
+  price:Number($("pPrice").value),
+  stock:Number($("pStock").value),
+  image:$("pImage").value.trim(),
+  description:$("pDescription").value.trim(),
+  active:true,
+  updatedAt:serverTimestamp()
+ };
+
+ if(!data.name||!data.category||!Number.isFinite(data.price)||!Number.isFinite(data.stock)||data.price<0||data.stock<0){
+  message("Periksa nama, kategori, harga, dan stok.");
+  return;
+ }
+
+ if(data.image){
+  try{
+   const url=new URL(data.image);
+   if(!["http:","https:"].includes(url.protocol))throw new Error();
+  }catch{
+   message("URL foto tidak valid.");
+   return;
+  }
+ }
+
+ $("saveProduct").disabled=true;
+ try{
+  if(editingId){
+   await updateDoc(doc(db,"products",editingId),data);
+   message("Produk berhasil diperbarui.",true);
+  }else{
+   data.createdAt=serverTimestamp();
+   await addDoc(collection(db,"products"),data);
+   message("Produk berhasil ditambahkan.",true);
+  }
+  resetForm();
+ }catch(e){
+  message("Gagal menyimpan: "+e.message);
+ }finally{
+  $("saveProduct").disabled=false;
+ }
+};
+
+function editProduct(id){
+ const p=products.find(x=>x.id===id);
+ if(!p)return;
+ editingId=id;
+ $("pName").value=p.name||"";
+ $("pCategory").value=p.category||"";
+ $("pPrice").value=p.price??0;
+ $("pStock").value=p.stock??0;
+ $("pImage").value=p.image||"";
+ $("pDescription").value=p.description||"";
+ $("formTitle").textContent="Edit Produk";
+ $("saveProduct").textContent="Simpan Perubahan";
+ $("cancelEdit").classList.remove("hidden");
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+async function removeProduct(id){
+ const p=products.find(x=>x.id===id);
+ if(!p||!confirm("Hapus produk "+p.name+"?"))return;
+ try{
+  await deleteDoc(doc(db,"products",id));
+  message("Produk berhasil dihapus.",true);
+ }catch(e){message("Gagal menghapus: "+e.message);}
+}
+
+function resetForm(){
+ editingId=null;
+ $("productForm").reset();
+ $("formTitle").textContent="Tambah Produk";
+ $("saveProduct").textContent="Simpan Produk";
+ $("cancelEdit").classList.add("hidden");
+}
+$("cancelEdit").onclick=resetForm;
+
+function watchOrders(){
+ stopOrders=onSnapshot(collection(db,"orders"),snap=>{
+  orders=snap.docs.map(d=>({id:d.id,...d.data()}));
+  renderOrders();
+ },e=>{$("orderList").textContent="Gagal membaca pesanan: "+e.message;});
+}
+
+function watchUsers(){
+ stopUsers=onSnapshot(collection(db,"users"),snap=>{
+  couriers=snap.docs
+   .map(d=>({id:d.id,...d.data()}))
+   .filter(u=>["kurir","courier"].includes(String(u.role||"").toLowerCase()));
+  renderOrders();
+ },e=>console.log("Gagal membaca daftar kurir",e));
+}
+
+function renderOrders(){
+ $("totalOrders").textContent=orders.length;
+ $("newOrders").textContent=orders.filter(o=>
+  ["Menunggu Konfirmasi","Baru"].includes(o.status)
+ ).length;
+
+ $("orderList").replaceChildren();
+
+ if(!orders.length){
+  $("orderList").textContent="Belum ada pesanan.";
+  return;
+ }
+
+ orders.sort((a,b)=>{
+  const ta=a.createdAt?.seconds||0;
+  const tb=b.createdAt?.seconds||0;
+  return tb-ta;
+ });
+
+ orders.forEach(o=>{
+  const box=document.createElement("div");
+  box.className="order";
+
+  const title=document.createElement("b");
+  title.textContent=o.orderNumber||o.id;
+
+  const customer=document.createElement("p");
+  customer.textContent=(o.customerName||"Pelanggan")+" • "+(o.phone||"-");
+
+  const address=document.createElement("p");
+  address.textContent="Alamat: "+(o.address||"-")+", "+(o.city||"");
+
+  const total=document.createElement("p");
+  total.textContent="Total: "+money(o.total);
+
+  const status=document.createElement("p");
+  status.innerHTML="";
+  const badge=document.createElement("span");
+  badge.className="badge";
+  badge.textContent=o.status||"Menunggu Konfirmasi";
+  status.append(badge);
+
+  const gps=document.createElement("p");
+  gps.className="muted";
+  const lat=Number(o.latitude);
+  const lng=Number(o.longitude);
+  const hasGps=Number.isFinite(lat)&&Number.isFinite(lng)&&
+   o.latitude!==null&&o.longitude!==null&&
+   o.latitude!==""&&o.longitude!=="";
+
+  if(hasGps){
+   gps.textContent="GPS: "+lat+", "+lng+" ";
+   const map=document.createElement("a");
+   map.href="https://www.google.com/maps?q="+encodeURIComponent(lat+","+lng);
+   map.target="_blank";
+   map.rel="noopener";
+   map.textContent="Buka Peta";
+   gps.append(map);
+  }else{
+   gps.textContent="Lokasi GPS belum tersedia pada pesanan ini.";
+  }
+
+  const courierLabel=document.createElement("label");
+  courierLabel.textContent="Tugaskan kurir";
+  const select=document.createElement("select");
+  const empty=document.createElement("option");
+  empty.value="";empty.textContent="Pilih kurir";
+  select.append(empty);
+
+  couriers.forEach(c=>{
+   const option=document.createElement("option");
+   option.value=c.id;
+   option.textContent=c.name||c.email||c.id;
+   if(c.id===o.courierId)option.selected=true;
+   select.append(option);
+  });
+
+  const assign=document.createElement("button");
+  assign.className="primary";
+  assign.textContent="Simpan Kurir";
+  assign.onclick=async()=>{
+   if(!select.value){alert("Pilih kurir terlebih dahulu.");return;}
+   try{
+    await updateDoc(doc(db,"orders",o.id),{
+     courierId:select.value,
+     courierName:select.options[select.selectedIndex].text,
+     status:"Ditugaskan",
+     updatedAt:serverTimestamp()
+    });
+    alert("Kurir berhasil ditugaskan.");
+   }catch(e){alert("Gagal menugaskan kurir: "+e.message);}
+  };
+
+  const statusLabel=document.createElement("label");
+  statusLabel.textContent="Status pesanan";
+  const statusSelect=document.createElement("select");
+  ["Menunggu Konfirmasi","Diproses","Ditugaskan","Dalam Pengiriman","Terkirim","Dibatalkan"].forEach(s=>{
+   const op=document.createElement("option");
+   op.value=s;op.textContent=s;
+   if((o.status||"Menunggu Konfirmasi")===s)op.selected=true;
+   statusSelect.append(op);
+  });
+
+  const updateStatus=document.createElement("button");
+  updateStatus.className="light";
+  updateStatus.textContent="Perbarui Status";
+  updateStatus.onclick=async()=>{
+   try{
+    await updateDoc(doc(db,"orders",o.id),{
+     status:statusSelect.value,
+     updatedAt:serverTimestamp()
+    });
+    alert("Status pesanan diperbarui.");
+   }catch(e){alert("Gagal memperbarui: "+e.message);}
+  };
+
+  const actions=document.createElement("div");
+  actions.className="actions";
+  actions.append(assign,updateStatus);
+
+  box.append(title,customer,address,total,status,gps,courierLabel,select,statusLabel,statusSelect,actions);
+  $("orderList").append(box);
+ });
+}
+</script>
+</body>
+</html>
