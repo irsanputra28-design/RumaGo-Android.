@@ -406,12 +406,23 @@ const products = [
   }
 ];
 
+  function readLocalArray(key) {
+  try {
+    const saved = localStorage.getItem(key);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.log("Data lokal tidak valid:", key);
+    return [];
+  }
+}
+
 let selectedCategory = "Semua";
-let cart = JSON.parse(localStorage.getItem("rg_cart") || "[]");
-let orders = JSON.parse(localStorage.getItem("rg_orders") || "[]");
+let cart = readLocalArray("rg_cart");
+let orders = readLocalArray("rg_orders");
 let authUser = null;
 let authMode = "login";
-
+  
 const categories = [
   "Semua",
   "Sembako",
