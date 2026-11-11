@@ -556,5 +556,18 @@ class MainActivity : Activity() {
                             .put("orders", result)
                     )
                 }
-                .addOnFailureListener { e ->
-                    sendCa
+                .
+.addOnFailureListener { e ->
+    sendCallback(
+        "onRumaGoOrdersResult",
+        JSONObject()
+            .put("success", false)
+            .put(
+                "message",
+                e.localizedMessage ?: "Gagal memuat pesanan."
+            )
+    )
+}
+}
+}
+}
