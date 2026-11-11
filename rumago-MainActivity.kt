@@ -7,6 +7,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.GeolocationPermissions
+import android.content.pm.PackageManager
 import android.graphics.Color
 import org.json.JSONArray
 import org.json.JSONObject
@@ -23,6 +25,21 @@ class MainActivity : Activity() {
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance() }
 
+    private val LOCATION_REQUEST_CODE = 1001
+    private var pendingGeoCallback: GeolocationPermissions.Callback? = null
+    private var pendingGeoOrigin: String? = null
+
+    private fun hasLocationPermission(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT < 23) {
+            true
+        } else {
+            checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -36,12 +53,61 @@ class MainActivity : Activity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
         webView.settings.javaScriptCanOpenWindowsAutomatically = false
+        webView.settings.setGeolocationEnabled(true)
 
         webView.webViewClient = WebViewClient()
-        webView.webChromeClient = WebChromeClient()
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String,
+                callback: GeolocationPermissions.Callback
+            ) {
+                if (hasLocationPermission()) {
+                    callback.invoke(origin, true, false)
+                } else {
+                    pendingGeoOrigin = origin
+                    pendingGeoCallback = callback
+
+                    if (android.os.Build.VERSION.SDK_INT >= 23) {
+                        requestPermissions(
+                            arrayOf(
+                                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                            ),
+                            LOCATION_REQUEST_CODE
+                        )
+                    } else {
+                        callback.invoke(origin, true, false)
+                    }
+                }
+            }
+        }
 
         webView.addJavascriptInterface(RumaGoBridge(), "Android")
         webView.loadUrl("file:///android_asset/index.html")
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == LOCATION_REQUEST_CODE) {
+            val granted = grantResults.any {
+                it == PackageManager.PERMISSION_GRANTED
+            }
+
+            pendingGeoCallback?.invoke(
+                pendingGeoOrigin ?: "",
+                granted,
+                false
+            )
+
+            pendingGeoCallback = null
+            pendingGeoOrigin = null
+        }
     }
 
     private fun sendCallback(functionName: String, payload: JSONObject) {
@@ -120,10 +186,7 @@ class MainActivity : Activity() {
                             JSONObject()
                                 .put("success", true)
                                 .put("message", "Registrasi berhasil. Selamat datang di RumaGo.")
-                                .put(
-                                    "user",
-                                    userJson(user.uid, user.email, safeProfile)
-                                )
+                                .put("user", userJson(user.uid, user.email, safeProfile))
                         )
                     }
                     .addOnFailureListener { e ->
@@ -131,10 +194,7 @@ class MainActivity : Activity() {
                             "onRumaGoAuthResult",
                             JSONObject()
                                 .put("success", false)
-                                .put(
-                                    "message",
-                                    "Akun dibuat, tetapi profil gagal disimpan: ${e.localizedMessage ?: "Periksa koneksi dan Firestore Rules"}"
-                                )
+                                .put("message", "Akun dibuat, tetapi profil gagal disimpan: ${e.localizedMessage ?: "Periksa koneksi dan Firestore Rules"}")
                         )
                     }
             }.addOnFailureListener { e ->
@@ -208,10 +268,7 @@ class MainActivity : Activity() {
                             JSONObject()
                                 .put("success", true)
                                 .put("message", "Login berhasil.")
-                                .put(
-                                    "user",
-                                    userJson(user.uid, user.email, data)
-                                )
+                                .put("user", userJson(user.uid, user.email, data))
                         )
                     }
                     .addOnFailureListener { e ->
@@ -340,6 +397,21 @@ class MainActivity : Activity() {
                     "createdAt" to FieldValue.serverTimestamp()
                 )
 
+                // Simpan koordinat GPS jika dikirim dari halaman checkout.
+                if (input.has("latitude") && !input.isNull("latitude")) {
+                    val latitude = input.optDouble("latitude")
+                    if (!latitude.isNaN() && !latitude.isInfinite()) {
+                        order["latitude"] = latitude
+                    }
+                }
+
+                if (input.has("longitude") && !input.isNull("longitude")) {
+                    val longitude = input.optDouble("longitude")
+                    if (!longitude.isNaN() && !longitude.isInfinite()) {
+                        order["longitude"] = longitude
+                    }
+                }
+
                 db.collection("orders")
                     .add(order)
                     .addOnSuccessListener {
@@ -421,6 +493,8 @@ class MainActivity : Activity() {
                             put("city", data["city"] ?: "")
                             put("delivery", data["delivery"] ?: "")
                             put("total", data["total"] ?: 0)
+                            put("latitude", data["latitude"] ?: JSONObject.NULL)
+                            put("longitude", data["longitude"] ?: JSONObject.NULL)
                             put(
                                 "items",
                                 JSONArray(
