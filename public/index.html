@@ -479,6 +479,11 @@ function renderOrders(){
 
   const total=document.createElement("p");
   total.textContent="Total: "+money(o.total);
+  const payment=document.createElement("p");
+payment.textContent="Metode Pembayaran: "+(o.paymentMethod||"-");
+
+const paymentStatus=document.createElement("p");
+paymentStatus.textContent="Status Pembayaran: "+(o.paymentStatus||"Belum ada status");
 
   const status=document.createElement("p");
   const badge=document.createElement("span");
@@ -533,8 +538,7 @@ function renderOrders(){
     saveTracking.disabled=false;
    }
   };
-  trackingWrap.append(trackingLabel,trackingInput,saveTracking);
-
+  box.append(total,payment,paymentStatus,status,gps,trackingWrap);
   const courierLabel=document.createElement("label");
   courierLabel.textContent="Tugaskan kurir";
   const select=document.createElement("select");
@@ -593,11 +597,10 @@ function renderOrders(){
   actions.className="actions";
   actions.append(assign,updateStatus);
 
-  box.append(title,customer,address,total,status,gps,trackingWrap,courierLabel,select,statusLabel,statusSelect,actions);
-    $("orderList").append(box);
- });
-}
-
+box.append(title,customer,address,total,payment,paymentStatus,status,gps,trackingWrap,courierLabel,select,statusLabel,statusSelect,actions);
+$("orderList").append(box);
+});
+           }
 async function loadPaymentSettings(){
  try{
   const snap=await getDoc(doc(db,"settings","payment"));
