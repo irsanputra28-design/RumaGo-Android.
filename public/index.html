@@ -809,121 +809,461 @@ assign.onclick=async()=>{
      refs.map(ref=>transaction.get(ref))
     );
 
-    const updates=[];
 
-    snaps.forEach((snap,index)=>{
-     const id=ids[index];
+function renderOrders(){
+ $("totalOrders").textContent=orders.length;
+ $("newOrders").textContent=orders.filter(o=>
+  ["Menunggu Konfirmasi","Baru"].includes(o.status)
+ ).length;
 
-     if(!snap.exists()){
-      throw new Error("Produk tidak ditemukan: "+names[id]);
-     }
+ $("orderList").replaceChildren();
 
-     const stock=Number(snap.data().stock);
-
-     if(!Number.isFinite(stock) || stock<quantities[id]){
-      throw new Error("Stok tidak cukup untuk: "+names[id]);
-     }
-
-     updates.push({
-      ref:refs[index],
-      stock:stock-quantities[id]
-     });
-    });
-
-    updates.forEach(item=>{
-     transaction.update(item.ref,{
-      stock:item.stock,
-      updatedAt:serverTimestamp()
-     });
-    });
-
-    transaction.update(orderRef,{
-     status:nextStatus,
-     stockDeducted:true,
-     stockDeductedAt:serverTimestamp(),
-     updatedAt:serverTimestamp()
-    });
-
-    return;
-   }
-
-   if(nextStatus==="Dibatalkan" && current.stockDeducted===true && current.stockRestored!==true){
-
-    const items=Array.isArray(current.items)?current.items:[];
-
-    const quantities={};
-    items.forEach(item=>{
-     const id=String(item.id||"");
-     const qty=Number(item.qty);
-
-     if(!id || !Number.isInteger(qty) || qty<=0){
-      throw new Error("Data produk atau jumlah pesanan tidak valid.");
-     }
-
-     quantities[id]=(quantities[id]||0)+qty;
-    });
-
-    const ids=Object.keys(quantities);
-    const refs=ids.map(id=>doc(db,"products",id));
-    const snaps=await Promise.all(
-     refs.map(ref=>transaction.get(ref))
-    );
-
-    const updates=[];
-
-    snaps.forEach((snap,index)=>{
-     if(!snap.exists()){
-      throw new Error("Produk tidak ditemukan saat pengembalian stok.");
-     }
-
-     const stock=Number(snap.data().stock);
-
-     if(!Number.isFinite(stock)){
-      throw new Error("Data stok produk tidak valid.");
-     }
-
-     updates.push({
-      ref:refs[index],
-      stock:stock+quantities[ids[index]]
-     });
-    });
-
-    updates.forEach(item=>{
-     transaction.update(item.ref,{
-      stock:item.stock,
-      updatedAt:serverTimestamp()
-     });
-    });
-
-    transaction.update(orderRef,{
-     status:nextStatus,
-     stockRestored:true,
-     stockRestoredAt:serverTimestamp(),
-     updatedAt:serverTimestamp()
-    });
-
-    return;
-   }
-
-   transaction.update(orderRef,{
-    status:nextStatus,
-    updatedAt:serverTimestamp()
-   });
-  });
-  
-  alert("Status pesanan berhasil diperbarui.");
- }catch(e){
-  alert("Gagal memperbarui: "+e.message);
+ if(!orders.length){
+  $("orderList").textContent="Belum ada pesanan.";
+  return;
  }
-};
+
+ orders.sort((a,b)=>{
+  const ta=a.createdAt?.seconds||0;
+  const tb=b.createdAt?.seconds||0;
+  return tb-ta;
+ });
+
+ orders.forEach(o=>{
+  const box=document.createElement("div");
+  box.className="order";
+
+  const title=document.createElement("b");
+  title.textContent="Transaksi: "+(o.orderNumber||o.id);
+
+  const customer=document.createElement("p");
+  customer.textContent=(o.customerName||"Pelanggan")+" • "+(o.phone||"-");
+
+  const address=document.createElement("p");
+  address.textContent="Alamat: "+(o.address||"-")+", "+(o.city||"");
+
+  const total=document.createElement("p");
+  total.textContent="Total: "+money(o.total);
+
+  const payment=document.createElement("p");
+  payment.textContent="Metode Pembayaran: "+(o.paymentMethod||"-");
+
+  const paymentStatus=document.createElement("p");
+  paymentStatus.textContent="Status Pembayaran: "+(o.paymentStatus||"Belum ada status");
+
+  const paymentVerification=document.createElement("div");
+  paymentVerification.className="order-field";
+
+  if((o.paymentMethod||"").toUpperCase()==="COD"){
+   paymentVerification.textContent="Verifikasi pembayaran tidak diperlukan untuk COD.";
+  }else{
+   const paymentSelect=document.createElement("select");
+
+   ["Menunggu Verifikasi","Pembayaran Diterima","Pembayaran Ditolak"].forEach(s=>{
+    const op=document.createElement("option");
+    op.value=s;
+    op.textContent=s;
+    if((o.paymentStatus||"Menunggu Verifikasi")===s)op.selected=true;
+    paymentSelect.append(op);
+   });
+
+   const verifyButton=document.createElement("button");
+   verifyButton.className="light";
+   verifyButton.textContent="Simpan Verifikasi";
+
+   verifyButton.onclick=async()=>{
+    verifyButton.disabled=true;
+    try{
+     await updateDoc(doc(db,"orders",o.id),{
+      paymentStatus:paymentSelect.value,
+      paymentVerifiedAt:serverTimestamp(),
+      updatedAt:serverTimestamp()
+     });
+     alert("Status pembayaran berhasil diperbarui.");
+    }catch(e){
+     alert("Gagal memperbarui pembayaran: "+e.message);
+    }finally{
+     verifyButton.disabled=false;
+    }
+   };
+
+   paymentVerification.append(paymentSelect,verifyButton);
+  }
+
+  // BUKTI PENGIRIMAN / POD
+  const podBox=document.createElement("div");
+  podBox.className="order-field";
+  podBox.textContent="Bukti pengiriman: memuat...";
+  box.append(podBox);
+
+  getDoc(doc(db,"orders",o.id,"deliveryProofs","latest"))
+   .then(proofSnap=>{
+    if(!proofSnap.exists()){
+     podBox.textContent="Bukti pengiriman: belum tersedia.";
+     return;
+    }
+
+    const proof=proofSnap.data();
+    podBox.replaceChildren();
+
+    const heading=document.createElement("b");
+    heading.textContent="📸 Bukti Pengiriman (POD)";
+
+    const recipient=document.createElement("p");
+    recipient.textContent="Nama penerima: "+(proof.recipientName||"-");
+
+    const delivered=document.createElement("p");
+    const deliveryDate=proof.deliveredAt?.toDate
+     ? proof.deliveredAt.toDate().toLocaleString("id-ID")
+     : "-";
+    delivered.textContent="Waktu pengiriman: "+deliveryDate;
+
+    podBox.append(heading,recipient,delivered);
+
+    if(proof.imageBase64){
+     const photo=document.createElement("img");
+     photo.src="data:"+(proof.mimeType||"image/jpeg")+";base64,"+proof.imageBase64;
+     photo.alt="Foto bukti pengiriman";
+     photo.style.maxWidth="100%";
+     photo.style.maxHeight="300px";
+     photo.style.objectFit="contain";
+     photo.style.display="block";
+     photo.style.marginTop="10px";
+     podBox.append(photo);
+    }
+   })
+   .catch(error=>{
+    podBox.textContent="Gagal memuat POD: "+error.message;
+   });
+
+  // STATUS PESANAN
+  const status=document.createElement("p");
+  const badge=document.createElement("span");
+  badge.className="badge";
+  badge.textContent=o.status||"Menunggu Konfirmasi";
+  status.append(badge);
+
+  // LOKASI GPS
+  const gps=document.createElement("p");
+  gps.className="muted";
+
+  const lat=Number(o.latitude);
+  const lng=Number(o.longitude);
+
+  const hasGps=Number.isFinite(lat)&&Number.isFinite(lng)&&
+   o.latitude!==null&&o.longitude!==null&&
+   o.latitude!==""&&o.longitude!=="";
+
+  if(hasGps){
+   gps.textContent="GPS: "+lat+", "+lng+" ";
+
+   const map=document.createElement("a");
+   map.href="https://www.google.com/maps?q="+encodeURIComponent(lat+","+lng);
+   map.target="_blank";
+   map.rel="noopener";
+   map.textContent="Buka Peta";
+   gps.append(map);
+  }else{
+   gps.textContent="Lokasi GPS belum tersedia pada pesanan ini.";
+  }
+
+  // NOMOR RESI
+  const trackingWrap=document.createElement("div");
+  trackingWrap.className="order-field";
+
+  const trackingLabel=document.createElement("label");
+  trackingLabel.textContent="Nomor resi / nomor pelacakan";
+
+  const trackingInput=document.createElement("input");
+  trackingInput.type="text";
+  trackingInput.placeholder="Masukkan nomor resi";
+  trackingInput.value=o.trackingNumber||"";
+
+  const saveTracking=document.createElement("button");
+  saveTracking.className="light";
+  saveTracking.textContent="Simpan Nomor Resi";
+
+  saveTracking.onclick=async()=>{
+   const trackingNumber=trackingInput.value.trim();
+   saveTracking.disabled=true;
+
+   try{
+    await updateDoc(doc(db,"orders",o.id),{
+     trackingNumber:trackingNumber,
+     trackingUpdatedAt:serverTimestamp(),
+     updatedAt:serverTimestamp()
+    });
+
+    alert(trackingNumber
+     ?"Nomor resi berhasil disimpan."
+     :"Nomor resi berhasil dikosongkan.");
+   }catch(e){
+    alert("Gagal menyimpan nomor resi: "+e.message);
+   }finally{
+    saveTracking.disabled=false;
+   }
+  };
+
+  trackingWrap.append(trackingLabel,trackingInput,saveTracking);
+
+  // PENUGASAN KURIR
+  const courierLabel=document.createElement("label");
+  courierLabel.textContent="Tugaskan kurir";
+
+  const select=document.createElement("select");
+  const empty=document.createElement("option");
+  empty.value="";
+  empty.textContent="Pilih kurir";
+  select.append(empty);
+
+  couriers.forEach(c=>{
+   const option=document.createElement("option");
+   option.value=c.id;
+   option.textContent=c.name||c.email||c.id;
+   if(c.id===o.courierId)option.selected=true;
+   select.append(option);
+  });
+
+  const assign=document.createElement("button");
+  assign.className="primary";
+  assign.textContent="Simpan Kurir";
+
+  assign.onclick=async()=>{
+   if(!select.value){
+    alert("Pilih kurir terlebih dahulu.");
+    return;
+   }
+
+   const selectedCourier=couriers.find(c=>c.id===select.value);
+
+   if(!selectedCourier){
+    alert("Data kurir tidak ditemukan.");
+    return;
+   }
+
+   assign.disabled=true;
+
+   try{
+    await updateDoc(doc(db,"orders",o.id),{
+     courierId:selectedCourier.id,
+     courierName:selectedCourier.name||selectedCourier.email||"Kurir RumaGo",
+     courierPhone:selectedCourier.phone||"",
+     status:"Ditugaskan",
+     updatedAt:serverTimestamp()
+    });
+
+    alert("Kurir berhasil ditugaskan.");
+   }catch(e){
+    alert("Gagal menugaskan kurir: "+e.message);
+   }finally{
+    assign.disabled=false;
+   }
+  };
+
+  // PEMBARUAN STATUS
+  const statusLabel=document.createElement("label");
+  statusLabel.textContent="Status pesanan";
+
+  const statusSelect=document.createElement("select");
+
+  ["Menunggu Konfirmasi","Diproses","Ditugaskan","Dalam Pengiriman","Terkirim","Dibatalkan"].forEach(s=>{
+   const op=document.createElement("option");
+   op.value=s;
+   op.textContent=s;
+   if((o.status||"Menunggu Konfirmasi")===s)op.selected=true;
+   statusSelect.append(op);
+  });
+
+  const updateStatus=document.createElement("button");
+  updateStatus.className="light";
+  updateStatus.textContent="Perbarui Status";
+
+  updateStatus.onclick=async()=>{
+   try{
+    const orderRef=doc(db,"orders",o.id);
+    const nextStatus=statusSelect.value;
+
+    await runTransaction(db,async(transaction)=>{
+     const orderSnap=await transaction.get(orderRef);
+
+     if(!orderSnap.exists()){
+      throw new Error("Pesanan tidak ditemukan.");
+     }
+
+     const current=orderSnap.data();
+
+     if(current.stockManaged!==true){
+      transaction.update(orderRef,{
+       status:nextStatus,
+       updatedAt:serverTimestamp()
+      });
+      return;
+     }
+
+     if(current.status==="Dibatalkan"&&nextStatus!=="Dibatalkan"){
+      throw new Error("Pesanan yang sudah dibatalkan tidak dapat dibuka kembali.");
+     }
+
+     // PENGURANGAN STOK
+     if(nextStatus==="Diproses"&&current.stockDeducted!==true){
+      const items=Array.isArray(current.items)?current.items:[];
+
+      if(!items.length){
+       throw new Error("Data produk pesanan kosong.");
+      }
+
+      const quantities={};
+      const names={};
+
+      items.forEach(item=>{
+       const id=String(item.id||"");
+       const qty=Number(item.qty);
+
+       if(!id||!Number.isInteger(qty)||qty<=0){
+        throw new Error("Data produk atau jumlah pesanan tidak valid.");
+       }
+
+       quantities[id]=(quantities[id]||0)+qty;
+       names[id]=item.name||id;
+      });
+
+      const ids=Object.keys(quantities);
+      const refs=ids.map(id=>doc(db,"products",id));
+      const snaps=await Promise.all(refs.map(ref=>transaction.get(ref)));
+      const updates=[];
+
+      snaps.forEach((snap,index)=>{
+       const id=ids[index];
+
+       if(!snap.exists()){
+        throw new Error("Produk tidak ditemukan: "+names[id]);
+       }
+
+       const stock=Number(snap.data().stock);
+
+       if(!Number.isFinite(stock)||stock<quantities[id]){
+        throw new Error("Stok tidak cukup untuk: "+names[id]);
+       }
+
+       updates.push({
+        ref:refs[index],
+        stock:stock-quantities[id]
+       });
+      });
+
+      updates.forEach(item=>{
+       transaction.update(item.ref,{
+        stock:item.stock,
+        updatedAt:serverTimestamp()
+       });
+      });
+
+      transaction.update(orderRef,{
+       status:nextStatus,
+       stockDeducted:true,
+       stockDeductedAt:serverTimestamp(),
+       updatedAt:serverTimestamp()
+      });
+
+      return;
+     }
+
+     // PENGEMBALIAN STOK JIKA DIBATALKAN
+     if(nextStatus==="Dibatalkan"&&
+        current.stockDeducted===true&&
+        current.stockRestored!==true){
+
+      const items=Array.isArray(current.items)?current.items:[];
+      const quantities={};
+
+      items.forEach(item=>{
+       const id=String(item.id||"");
+       const qty=Number(item.qty);
+
+       if(!id||!Number.isInteger(qty)||qty<=0){
+        throw new Error("Data produk atau jumlah pesanan tidak valid.");
+       }
+
+       quantities[id]=(quantities[id]||0)+qty;
+      });
+
+      const ids=Object.keys(quantities);
+      const refs=ids.map(id=>doc(db,"products",id));
+      const snaps=await Promise.all(refs.map(ref=>transaction.get(ref)));
+      const updates=[];
+
+      snaps.forEach((snap,index)=>{
+       if(!snap.exists()){
+        throw new Error("Produk tidak ditemukan saat pengembalian stok.");
+       }
+
+       const stock=Number(snap.data().stock);
+
+       if(!Number.isFinite(stock)){
+        throw new Error("Data stok produk tidak valid.");
+       }
+
+       updates.push({
+        ref:refs[index],
+        stock:stock+quantities[ids[index]]
+       });
+      });
+
+      updates.forEach(item=>{
+       transaction.update(item.ref,{
+        stock:item.stock,
+        updatedAt:serverTimestamp()
+       });
+      });
+
+      transaction.update(orderRef,{
+       status:nextStatus,
+       stockRestored:true,
+       stockRestoredAt:serverTimestamp(),
+       updatedAt:serverTimestamp()
+      });
+
+      return;
+     }
+
+     transaction.update(orderRef,{
+      status:nextStatus,
+      updatedAt:serverTimestamp()
+     });
+    });
+
+    alert("Status pesanan berhasil diperbarui.");
+   }catch(e){
+    alert("Gagal memperbarui: "+e.message);
+   }
+  };
+
   const actions=document.createElement("div");
   actions.className="actions";
   actions.append(assign,updateStatus);
 
-box.append(title,customer,address,total,payment,paymentStatus,paymentVerification,status,gps,trackingWrap,courierLabel,select,statusLabel,statusSelect,actions);
-$("orderList").append(box);
-});
-           }
+  box.append(
+   title,
+   customer,
+   address,
+   total,
+   payment,
+   paymentStatus,
+   paymentVerification,
+   status,
+   gps,
+   trackingWrap,
+   courierLabel,
+   select,
+   statusLabel,
+   statusSelect,
+   actions
+  );
+
+  $("orderList").append(box);
+ });
+}
+ }
 async function loadPaymentSettings(){
  try{
   const snap=await getDoc(doc(db,"settings","payment"));
