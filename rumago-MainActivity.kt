@@ -478,84 +478,77 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        
-@JavascriptInterface
-fun getMyOrders() {
-    val user = auth.currentUser
+        fun getMyOrders() {
+            val user = auth.currentUser
 
-    if (user == null) {
-        sendCallback(
-            "onRumaGoOrdersResult",
-            JSONObject()
-                .put("success", false)
-                .put("message", "Silakan login.")
-        )
-        return
-    }
-
-    db.collection("orders")
-        .whereEqualTo("customerId", user.uid)
-        .get()
-        .addOnSuccessListener { snapshot ->
-            val result = JSONArray()
-
-            for (doc in snapshot.documents) {
-                val data = doc.data ?: continue
-                val created = data["createdAt"]
-
-                val dateText = when (created) {
-                    is com.google.firebase.Timestamp ->
-                        SimpleDateFormat(
-                            "dd MMM yyyy, HH:mm",
-                            Locale("id", "ID")
-                        ).format(created.toDate())
-
-                    is Date ->
-                        SimpleDateFormat(
-                            "dd MMM yyyy, HH:mm",
-                            Locale("id", "ID")
-                        ).format(created)
-
-                    else -> ""
-                }
-
-                val obj = JSONObject()
-                obj.put("id", doc.id)
-                obj.put("orderNumber", data["orderNumber"] ?: doc.id)
-                obj.put("status", data["status"] ?: "Diproses")
-                obj.put("createdAt", dateText)
-                obj.put("customerName", data["customerName"] ?: "")
-                obj.put("phone", data["phone"] ?: "")
-                obj.put("address", data["address"] ?: "")
-                obj.put("city", data["city"] ?: "")
-                obj.put("delivery", data["delivery"] ?: "")
-                obj.put("total", data["total"] ?: 0)
-                obj.put("latitude", data["latitude"] ?: JSONObject.NULL)
-                obj.put("longitude", data["longitude"] ?: JSONObject.NULL)
-
-                val items = data["items"] as? Collection<*> ?: emptyList<Any>()
-                obj.put("items", JSONArray(items))
-
-                result.put(obj)
+            if (user == null) {
+                sendCallback(
+                    "onRumaGoOrdersResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", "Silakan login.")
+                )
+                return
             }
 
-            sendCallback(
-                "onRumaGoOrdersResult",
-                JSONObject()
-                    .put("success", true)
-                    .put("orders", result)
-            )
-        }
-        .addOnFailureListener { e ->
-            sendCallback(
-                "onRumaGoOrdersResult",
-                JSONObject()
-                    .put("success", false)
-                    .put(
-                        "message",
-                        e.localizedMessage ?: "Gagal membaca pesanan."
-                    )
-            )
-        }
-}
+            db.collection("orders")
+                .whereEqualTo("customerId", user.uid)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val result = JSONArray()
 
+                    for (doc in snapshot.documents) {
+                        val data = doc.data ?: continue
+                        val created = data["createdAt"]
+
+                        val dateText = when (created) {
+                            is com.google.firebase.Timestamp ->
+                                SimpleDateFormat(
+                                    "dd MMM yyyy, HH:mm",
+                                    Locale("id", "ID")
+                                ).format(created.toDate())
+
+                            is Date ->
+                                SimpleDateFormat(
+                                    "dd MMM yyyy, HH:mm",
+                                    Locale("id", "ID")
+                                ).format(created)
+
+                            else -> ""
+                        }
+
+                        val obj = JSONObject()
+                        obj.put("id", doc.id)
+                        obj.put("orderNumber", data["orderNumber"] ?: doc.id)
+                        obj.put("status", data["status"] ?: "Diproses")
+                        obj.put("createdAt", dateText)
+                        obj.put("customerName", data["customerName"] ?: "")
+                        obj.put("phone", data["phone"] ?: "")
+                        obj.put("address", data["address"] ?: "")
+                        obj.put("city", data["city"] ?: "")
+                        obj.put("delivery", data["delivery"] ?: "")
+                        obj.put("total", data["total"] ?: 0)
+                        obj.put("latitude", data["latitude"] ?: JSONObject.NULL)
+                        obj.put("longitude", data["longitude"] ?: JSONObject.NULL)
+
+                        val items = data["items"] as? Collection<*> ?: emptyList<Any>()
+                        obj.put("items", JSONArray(items))
+
+                        result.put(obj)
+                    }
+
+                    sendCallback(
+                        "onRumaGoOrdersResult",
+                        JSONObject()
+                            .put("success", true)
+                            .put("orders", result)
+                    )
+                }
+                .addOnFailureListener { e ->
+                    sendCallback(
+                        "onRumaGoOrdersResult",
+                        JSONObject()
+                            .put("success", false)
+                            .put(
+                                "message",
+                       
