@@ -841,7 +841,10 @@ function renderCourierTasks(list){
    </div>
   `).join("");
 
+  
   let gps="Lokasi GPS tidak tersedia.";
+
+  let mapUrl="";
 
   if(
    o.latitude!==null&&o.latitude!==undefined&&
@@ -851,12 +854,28 @@ function renderCourierTasks(list){
    const lng=Number(o.longitude);
 
    if(Number.isFinite(lat)&&Number.isFinite(lng)){
-    gps=`
-     <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank">
-      📍 Buka Lokasi Pelanggan di Google Maps
-     </a>`;
+    mapUrl=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
    }
   }
+
+  if(!mapUrl){
+   const customerAddress=[
+    o.address||"",
+    o.city||""
+   ].filter(Boolean).join(", ");
+
+   if(customerAddress){
+    mapUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customerAddress)}`;
+   }
+  }
+
+  if(mapUrl){
+   gps=`
+    <a href="${mapUrl}">
+     📍 Buka Lokasi Pelanggan di Google Maps
+    </a>`;
+  }
+
 
   let action="";
 
