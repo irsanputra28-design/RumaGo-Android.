@@ -484,7 +484,44 @@ payment.textContent="Metode Pembayaran: "+(o.paymentMethod||"-");
 
 const paymentStatus=document.createElement("p");
 paymentStatus.textContent="Status Pembayaran: "+(o.paymentStatus||"Belum ada status");
+const paymentVerification=document.createElement("div");
+paymentVerification.className="order-field";
 
+if((o.paymentMethod||"").toUpperCase()==="COD"){
+ paymentVerification.textContent="Verifikasi pembayaran tidak diperlukan untuk COD.";
+}else{
+ const paymentSelect=document.createElement("select");
+
+ ["Menunggu Verifikasi","Pembayaran Diterima","Pembayaran Ditolak"].forEach(s=>{
+  const op=document.createElement("option");
+  op.value=s;
+  op.textContent=s;
+  if((o.paymentStatus||"Menunggu Verifikasi")===s)op.selected=true;
+  paymentSelect.append(op);
+ });
+
+ const verifyButton=document.createElement("button");
+ verifyButton.className="light";
+ verifyButton.textContent="Simpan Verifikasi";
+
+ verifyButton.onclick=async()=>{
+  verifyButton.disabled=true;
+  try{
+   await updateDoc(doc(db,"orders",o.id),{
+    paymentStatus:paymentSelect.value,
+    paymentVerifiedAt:serverTimestamp(),
+    updatedAt:serverTimestamp()
+   });
+   alert("Status pembayaran berhasil diperbarui.");
+  }catch(e){
+   alert("Gagal memperbarui pembayaran: "+e.message);
+  }finally{
+   verifyButton.disabled=false;
+  }
+ };
+
+ paymentVerification.append(paymentSelect,verifyButton);
+ }
   const status=document.createElement("p");
   const badge=document.createElement("span");
   badge.className="badge";
@@ -537,8 +574,8 @@ paymentStatus.textContent="Status Pembayaran: "+(o.paymentStatus||"Belum ada sta
    }finally{
     saveTracking.disabled=false;
    }
-  };
-  box.append(total,payment,paymentStatus,status,gps,trackingWrap);
+    };
+  trackingWrap.append(trackingLabel,trackingInput,saveTracking);
   const courierLabel=document.createElement("label");
   courierLabel.textContent="Tugaskan kurir";
   const select=document.createElement("select");
@@ -597,7 +634,7 @@ paymentStatus.textContent="Status Pembayaran: "+(o.paymentStatus||"Belum ada sta
   actions.className="actions";
   actions.append(assign,updateStatus);
 
-box.append(title,customer,address,total,payment,paymentStatus,status,gps,trackingWrap,courierLabel,select,statusLabel,statusSelect,actions);
+box.append(title,customer,address,total,payment,paymentStatus,paymentVerification,status,gps,trackingWrap,courierLabel,select,statusLabel,statusSelect,actions);
 $("orderList").append(box);
 });
            }
