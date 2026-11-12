@@ -185,17 +185,86 @@ function getCheckoutLocation(){
 }
 async function submitOrder(){
  if(busy)return;
- const name=$("checkoutName").value.trim(),phone=$("checkoutPhone").value.trim(),address=$("checkoutAddress").value.trim(),city=$("checkoutCity").value.trim();
- if(!name||!phone||!address||!city){toast("Mohon lengkapi nama, nomor HP, alamat, dan kota.");return}
- if(!auth.currentUser){toast("Silakan login kembali.");showPage("account");return}
- const button=$("orderButton");busy=true;if(button){button.disabled=true;button.textContent="Menyimpan pesanan..."}
+
+ const name=$("checkoutName").value.trim();
+ const phone=$("checkoutPhone").value.trim();
+ const address=$("checkoutAddress").value.trim();
+ const city=$("checkoutCity").value.trim();
+
+ if(!name||!phone||!address||!city){
+  toast("Mohon lengkapi nama, nomor HP, alamat, dan kota.");
+  return;
+ }
+
+ if(!auth.currentUser){
+  toast("Silakan login kembali.");
+  showPage("account");
+  return;
+ }
+
+ const button=$("orderButton");
+ busy=true;
+
+ if(button){
+  button.disabled=true;
+  button.textContent="Menyimpan pesanan...";
+ }
+
  try{
-  const items=cart.map(x=>({id:String(x.id),name:x.name,price:Number(x.price),qty:Number(x.qty)}));
-  const payload={customerId:auth.currentUser.uid,customerName:name,phone,address,city,delivery:$("deliveryType").value,note:$("checkoutNote").value.trim(),items,total:cartTotal(),status:"Menunggu Konfirmasi",latitude:checkoutLocation?.latitude??null,longitude:checkoutLocation?.longitude??null,createdAt:serverTimestamp()};
+  const now=new Date();
+  const dateCode=now.getFullYear()+
+   String(now.getMonth()+1).padStart(2,"0")+
+   String(now.getDate()).padStart(2,"0");
+
+  const uniqueCode=String(now.getTime()).slice(-8);
+  const orderNumber="RMG-"+dateCode+"-"+uniqueCode;
+
+  const items=cart.map(x=>({
+   id:String(x.id),
+   name:x.name,
+   price:Number(x.price),
+   qty:Number(x.qty)
+  }));
+
+  const payload={
+   orderNumber,
+   customerId:auth.currentUser.uid,
+   customerName:name,
+   phone,
+   address,
+   city,
+   delivery:$("deliveryType").value,
+   note:$("checkoutNote").value.trim(),
+   items,
+   total:cartTotal(),
+   status:"Menunggu Konfirmasi",
+   paymentStatus:"Menunggu Pembayaran",
+   trackingNumber:"",
+   latitude:checkoutLocation?.latitude??null,
+   longitude:checkoutLocation?.longitude??null,
+   createdAt:serverTimestamp()
+  };
+
   await addDoc(collection(db,"orders"),payload);
-  cart=[];saveCart();checkoutLocation=null;toast("Pesanan berhasil dibuat.");showPage("orders");
- }catch(e){console.error(e);toast("Pesanan gagal disimpan: "+(e.message||"Periksa koneksi internet."));if(button){button.disabled=false;button.textContent="Buat Pesanan"}}
- finally{busy=false}
+
+  cart=[];
+  saveCart();
+  checkoutLocation=null;
+
+  toast("Pesanan berhasil dibuat. Nomor: "+orderNumber);
+  showPage("orders");
+
+ }catch(e){
+  console.error(e);
+  toast("Pesanan gagal disimpan: "+(e.message||"Periksa koneksi internet."));
+
+  if(button){
+   button.disabled=false;
+   button.textContent="Buat Pesanan";
+  }
+ }finally{
+  busy=false;
+ }
 }
 function loadOrders(){
  const c=$("ordersContent");
