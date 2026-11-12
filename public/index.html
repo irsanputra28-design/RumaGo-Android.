@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -84,6 +85,7 @@ a{color:#0d6845;font-weight:bold}
 <button data-tab="orders">Pesanan & Kurir</button>
 <button data-tab="payment">Pengaturan Pembayaran</button>
 </div>
+
 <section id="productsPanel">
 <div class="card">
 <h3 id="formTitle">Tambah Produk</h3>
@@ -91,10 +93,8 @@ a{color:#0d6845;font-weight:bold}
 <label>SKU Produk</label>
 <input id="pSku" readonly value="Dibuat otomatis saat produk disimpan">
 <div class="small-note">SKU dibuat otomatis dan tidak berubah saat produk diedit.</div>
-
 <label>Nama barang *</label>
 <input id="pName" required placeholder="Contoh: Beras Premium 5 Kg">
-
 <label>Kategori *</label>
 <select id="pCategory" required>
 <option value="">Pilih kategori</option>
@@ -106,19 +106,14 @@ a{color:#0d6845;font-weight:bold}
 <option>Elektronik</option>
 <option>Lainnya</option>
 </select>
-
 <label>Harga jual (Rp) *</label>
 <input id="pPrice" type="number" min="0" required>
-
 <label>Stok *</label>
 <input id="pStock" type="number" min="0" required>
-
 <label>URL foto produk</label>
 <input id="pImage" type="url" placeholder="https://alamat-foto.jpg">
-
 <label>Deskripsi</label>
 <textarea id="pDescription" rows="3"></textarea>
-
 <button class="primary full" id="saveProduct">Simpan Produk</button>
 <button class="light full hidden" type="button" id="cancelEdit" style="margin-top:8px">Batal Edit</button>
 </form>
@@ -139,76 +134,40 @@ a{color:#0d6845;font-weight:bold}
 <p class="muted">Lokasi GPS ditampilkan jika pelanggan sudah mengirimkan koordinat saat checkout.</p>
 <div id="orderList">Memuat pesanan...</div>
 </div>
-</section> 
-<section id="paymentPanel" class="hidden">
- <div class="card">
-  <h3>Pengaturan Pembayaran</h3>
-
-  <label>
-   <input type="checkbox" id="codEnabled" checked>
-   Aktifkan COD (Bayar di Tempat)
-  </label>
-
-  <hr>
-
-  <label>
-   <input type="checkbox" id="bankEnabled">
-   Aktifkan Transfer Bank
-  </label>
-
-  <label>Nama Bank</label>
-  <input id="bankName" placeholder="Contoh: BCA">
-
-  <label>Nomor Rekening</label>
-  <input id="bankAccount" placeholder="Masukkan nomor rekening">
-
-  <label>Nama Pemilik Rekening</label>
-  <input id="bankHolder" placeholder="Nama pemilik rekening">
-
-  <hr>
-
-  <label>
-   <input type="checkbox" id="qrisEnabled">
-   Aktifkan QRIS
-  </label>
-
-  <label>URL Gambar QRIS</label>
-  <input id="qrisImageUrl" type="url" placeholder="URL gambar QRIS">
-
-  <p class="muted">QRIS dapat diaktifkan setelah gambar tersedia.</p>
-
-  <button type="button" class="primary full" id="savePayment">
-   Simpan Pengaturan Pembayaran
-  </button>
-  <div id="paymentMessage" class="muted"></div>
- </div>
 </section>
- 
+
+<section id="paymentPanel" class="hidden">
+<div class="card">
+<h3>Pengaturan Pembayaran</h3>
+<label><input type="checkbox" id="codEnabled" checked> Aktifkan COD (Bayar di Tempat)</label>
+<hr>
+<label><input type="checkbox" id="bankEnabled"> Aktifkan Transfer Bank</label>
+<label>Nama Bank</label>
+<input id="bankName" placeholder="Contoh: BCA">
+<label>Nomor Rekening</label>
+<input id="bankAccount" placeholder="Masukkan nomor rekening">
+<label>Nama Pemilik Rekening</label>
+<input id="bankHolder" placeholder="Nama pemilik rekening">
+<hr>
+<label><input type="checkbox" id="qrisEnabled"> Aktifkan QRIS</label>
+<label>URL Gambar QRIS</label>
+<input id="qrisImageUrl" type="url" placeholder="URL gambar QRIS">
+<p class="muted">QRIS dapat diaktifkan setelah gambar tersedia.</p>
+<button type="button" class="primary full" id="savePayment">Simpan Pengaturan Pembayaran</button>
+<div id="paymentMessage" class="muted"></div>
+</div>
+</section>
 </section>
 </main>
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
-
 import {
- getAuth,
- signInWithEmailAndPassword,
- signOut,
- onAuthStateChanged
+ getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-
 import {
- getFirestore,
- collection,
- addDoc,
- updateDoc,
- deleteDoc,
- doc,
- getDoc,
- setDoc,
- onSnapshot,
- serverTimestamp,
- runTransaction
+ getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,getDoc,setDoc,
+ onSnapshot,serverTimestamp,runTransaction
 } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const firebaseConfig={
@@ -223,8 +182,8 @@ const firebaseConfig={
 const app=initializeApp(firebaseConfig);
 const auth=getAuth(app);
 const db=getFirestore(app);
-
 const $=id=>document.getElementById(id);
+
 let products=[];
 let orders=[];
 let couriers=[];
@@ -233,14 +192,15 @@ let stopProducts=null;
 let stopOrders=null;
 let stopUsers=null;
 
-const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n||0));
+const money=n=>new Intl.NumberFormat("id-ID",{
+ style:"currency",currency:"IDR",maximumFractionDigits:0
+}).format(Number(n||0));
 
 function message(text,ok=false){
  $("message").textContent=text;
  $("message").style.color=ok?"#0d6845":"#c62828";
 }
 
-/* SKU menggunakan ID dokumen Firestore agar unik dan tetap. */
 function makeSku(productId){
  return "RMG-"+String(productId).toUpperCase();
 }
@@ -248,7 +208,9 @@ function makeSku(productId){
 $("loginBtn").onclick=async()=>{
  $("loginMessage").textContent="Memeriksa akun...";
  try{
-  await signInWithEmailAndPassword(auth,$("email").value.trim(),$("password").value);
+  await signInWithEmailAndPassword(
+   auth,$("email").value.trim(),$("password").value
+  );
  }catch(e){
   $("loginMessage").textContent="Login gagal: "+e.message;
  }
@@ -275,11 +237,10 @@ onAuthStateChanged(auth,async user=>{
   $("login").classList.add("hidden");
   $("dashboard").classList.remove("hidden");
   $("adminEmail").textContent=user.email||"";
-
   watchProducts();
   watchOrders();
   watchUsers();
-loadPaymentSettings();
+  loadPaymentSettings();
  }catch(e){
   await signOut(auth);
   $("loginMessage").textContent="Gagal memeriksa akun: "+e.message;
@@ -292,9 +253,7 @@ document.querySelectorAll("[data-tab]").forEach(btn=>{
  btn.onclick=()=>{
   document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
-
   const tab=btn.dataset.tab;
-
   $("productsPanel").classList.toggle("hidden",tab!=="products");
   $("ordersPanel").classList.toggle("hidden",tab!=="orders");
   $("paymentPanel").classList.toggle("hidden",tab!=="payment");
@@ -337,7 +296,8 @@ function renderProducts(){
   name.textContent=p.name||"Tanpa nama";
   const detail=document.createElement("div");
   detail.className="muted";
-  detail.textContent=(p.sku||"SKU belum dibuat")+" • "+(p.category||"Lainnya")+" • "+money(p.price)+" • Stok "+(p.stock||0);
+  detail.textContent=(p.sku||"SKU belum dibuat")+" • "+
+   (p.category||"Lainnya")+" • "+money(p.price)+" • Stok "+(p.stock||0);
 
   const actions=document.createElement("div");
   actions.className="actions";
@@ -354,11 +314,12 @@ function renderProducts(){
   $("productList").append(row);
  });
 }
-
+ 
 $("searchProduct").oninput=renderProducts;
 
 $("productForm").onsubmit=async e=>{
  e.preventDefault();
+
  const data={
   name:$("pName").value.trim(),
   category:$("pCategory").value,
@@ -370,7 +331,10 @@ $("productForm").onsubmit=async e=>{
   updatedAt:serverTimestamp()
  };
 
- if(!data.name||!data.category||!Number.isFinite(data.price)||!Number.isFinite(data.stock)||data.price<0||data.stock<0){
+ if(!data.name||!data.category||
+    !Number.isFinite(data.price)||
+    !Number.isFinite(data.stock)||
+    data.price<0||data.stock<0){
   message("Periksa nama, kategori, harga, dan stok.");
   return;
  }
@@ -386,22 +350,28 @@ $("productForm").onsubmit=async e=>{
  }
 
  $("saveProduct").disabled=true;
+
  try{
   if(editingId){
    const existing=products.find(p=>p.id===editingId);
    data.sku=existing?.sku||makeSku(editingId);
+
    await updateDoc(doc(db,"products",editingId),data);
    message("Produk berhasil diperbarui. SKU: "+data.sku,true);
   }else{
    data.createdAt=serverTimestamp();
+
    const newProduct=await addDoc(collection(db,"products"),data);
    data.sku=makeSku(newProduct.id);
+
    await updateDoc(doc(db,"products",newProduct.id),{
     sku:data.sku,
     updatedAt:serverTimestamp()
    });
+
    message("Produk berhasil ditambahkan. SKU: "+data.sku,true);
   }
+
   resetForm();
  }catch(e){
   message("Gagal menyimpan: "+e.message);
@@ -413,27 +383,33 @@ $("productForm").onsubmit=async e=>{
 function editProduct(id){
  const p=products.find(x=>x.id===id);
  if(!p)return;
+
  editingId=id;
- $("pSku").value=p.sku||makeSku(id)+" (akan disimpan saat diperbarui)";
+ $("pSku").value=p.sku||makeSku(id);
  $("pName").value=p.name||"";
  $("pCategory").value=p.category||"";
  $("pPrice").value=p.price??0;
  $("pStock").value=p.stock??0;
  $("pImage").value=p.image||"";
  $("pDescription").value=p.description||"";
+
  $("formTitle").textContent="Edit Produk";
  $("saveProduct").textContent="Simpan Perubahan";
  $("cancelEdit").classList.remove("hidden");
+
  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 async function removeProduct(id){
  const p=products.find(x=>x.id===id);
  if(!p||!confirm("Hapus produk "+p.name+"?"))return;
+
  try{
   await deleteDoc(doc(db,"products",id));
   message("Produk berhasil dihapus.",true);
- }catch(e){message("Gagal menghapus: "+e.message);}
+ }catch(e){
+  message("Gagal menghapus: "+e.message);
+ }
 }
 
 function resetForm(){
@@ -444,15 +420,17 @@ function resetForm(){
  $("saveProduct").textContent="Simpan Produk";
  $("cancelEdit").classList.add("hidden");
 }
+
 $("cancelEdit").onclick=resetForm;
 
 function watchOrders(){
  stopOrders=onSnapshot(collection(db,"orders"),snap=>{
   orders=snap.docs.map(d=>({id:d.id,...d.data()}));
   renderOrders();
- },e=>{$("orderList").textContent="Gagal membaca pesanan: "+e.message;});
+ },e=>{
+  $("orderList").textContent="Gagal membaca pesanan: "+e.message;
+ });
 }
-
 
 function watchUsers(){
  stopUsers=onSnapshot(collection(db,"users"),snap=>{
@@ -462,353 +440,11 @@ function watchUsers(){
     String(u.role||"").trim().toLowerCase()
    ));
 
-  alert("Data users terbaca: "+snap.size+
-        "\nKurir ditemukan: "+couriers.length);
-
   renderOrders();
  },e=>{
   alert("Gagal membaca data kurir: "+e.message);
  });
-}
-
-function renderOrders(){
- $("totalOrders").textContent=orders.length;
- $("newOrders").textContent=orders.filter(o=>
-  ["Menunggu Konfirmasi","Baru"].includes(o.status)
- ).length;
-
- $("orderList").replaceChildren();
-
- if(!orders.length){
-  $("orderList").textContent="Belum ada pesanan.";
-  return;
  }
-
- orders.sort((a,b)=>{
-  const ta=a.createdAt?.seconds||0;
-  const tb=b.createdAt?.seconds||0;
-  return tb-ta;
- });
-
- orders.forEach(o=>{
-  const box=document.createElement("div");
-  box.className="order";
-
-  const title=document.createElement("b");
-  title.textContent="Transaksi: "+(o.orderNumber||o.id);
-
-  const customer=document.createElement("p");
-  customer.textContent=(o.customerName||"Pelanggan")+" • "+(o.phone||"-");
-
-  const address=document.createElement("p");
-  address.textContent="Alamat: "+(o.address||"-")+", "+(o.city||"");
-
-  const total=document.createElement("p");
-  total.textContent="Total: "+money(o.total);
-  const payment=document.createElement("p");
-payment.textContent="Metode Pembayaran: "+(o.paymentMethod||"-");
-
-const paymentStatus=document.createElement("p");
-paymentStatus.textContent="Status Pembayaran: "+(o.paymentStatus||"Belum ada status");
-const paymentVerification=document.createElement("div");
-paymentVerification.className="order-field";
-
-if((o.paymentMethod||"").toUpperCase()==="COD"){
- paymentVerification.textContent="Verifikasi pembayaran tidak diperlukan untuk COD.";
-}else{
- const paymentSelect=document.createElement("select");
-
- ["Menunggu Verifikasi","Pembayaran Diterima","Pembayaran Ditolak"].forEach(s=>{
-  const op=document.createElement("option");
-  op.value=s;
-  op.textContent=s;
-  if((o.paymentStatus||"Menunggu Verifikasi")===s)op.selected=true;
-  paymentSelect.append(op);
- });
-
- const verifyButton=document.createElement("button");
- verifyButton.className="light";
- verifyButton.textContent="Simpan Verifikasi";
-
- verifyButton.onclick=async()=>{
-  verifyButton.disabled=true;
-  try{
-   await updateDoc(doc(db,"orders",o.id),{
-    paymentStatus:paymentSelect.value,
-    paymentVerifiedAt:serverTimestamp(),
-    updatedAt:serverTimestamp()
-   });
-   alert("Status pembayaran berhasil diperbarui.");
-  }catch(e){
-   alert("Gagal memperbarui pembayaran: "+e.message);
-  }finally{
-   verifyButton.disabled=false;
-  }
- };
-
- paymentVerification.append(paymentSelect,verifyButton);
- }
-  const podBox=document.createElement("div");
-  podBox.className="order-field";
-  podBox.textContent="Bukti pengiriman: memuat...";
-  box.append(podBox);
-
-  getDoc(doc(db,"orders",o.id,"deliveryProofs","latest"))
-   .then(proofSnap=>{
-    if(!proofSnap.exists()){
-     podBox.textContent="Bukti pengiriman: belum tersedia.";
-     return;
-    }
-
-    const proof=proofSnap.data();
-    podBox.replaceChildren();
-
-    const heading=document.createElement("b");
-    heading.textContent="📸 Bukti Pengiriman (POD)";
-
-    const recipient=document.createElement("p");
-    recipient.textContent="Nama penerima: "+(proof.recipientName||"-");
-
-    const delivered=document.createElement("p");
-    const deliveryDate=proof.deliveredAt?.toDate
-     ? proof.deliveredAt.toDate().toLocaleString("id-ID")
-     : "-";
-    delivered.textContent="Waktu pengiriman: "+deliveryDate;
-
-    podBox.append(heading,recipient,delivered);
-
-    if(proof.imageBase64){
-     const photo=document.createElement("img");
-     photo.src="data:"+(proof.mimeType||"image/jpeg")+";base64,"+proof.imageBase64;
-     photo.alt="Foto bukti pengiriman";
-     photo.style.maxWidth="100%";
-     photo.style.maxHeight="300px";
-     photo.style.objectFit="contain";
-     photo.style.display="block";
-     photo.style.marginTop="10px";
-     podBox.append(photo);
-    }
-   })
-   .catch(error=>{
-    podBox.textContent="Gagal memuat POD: "+error.message;
-   });
-  
-  
-  const podBox=document.createElement("div");
-  podBox.className="order-field";
-  podBox.textContent="Bukti pengiriman: memuat...";
-  box.append(podBox);
-
-  getDoc(doc(db,"orders",o.id,"deliveryProofs","latest"))
-   .then(proofSnap=>{
-    if(!proofSnap.exists()){
-     podBox.textContent="Bukti pengiriman: belum tersedia.";
-     return;
-    }
-
-    const proof=proofSnap.data();
-    podBox.replaceChildren();
-
-    const heading=document.createElement("b");
-    heading.textContent="📸 Bukti Pengiriman (POD)";
-
-    const recipient=document.createElement("p");
-    recipient.textContent="Nama penerima: "+(proof.recipientName||"-");
-
-    const delivered=document.createElement("p");
-    const deliveryDate=proof.deliveredAt?.toDate
-     ? proof.deliveredAt.toDate().toLocaleString("id-ID")
-     : "-";
-    delivered.textContent="Waktu pengiriman: "+deliveryDate;
-
-    podBox.append(heading,recipient,delivered);
-
-    if(proof.imageBase64){
-     const photo=document.createElement("img");
-     photo.src="data:"+(proof.mimeType||"image/jpeg")+";base64,"+proof.imageBase64;
-     photo.alt="Foto bukti pengiriman";
-     photo.style.maxWidth="100%";
-     photo.style.maxHeight="300px";
-     photo.style.objectFit="contain";
-     photo.style.display="block";
-     photo.style.marginTop="10px";
-     podBox.append(photo);
-    }
-   })
-   .catch(error=>{
-    podBox.textContent="Gagal memuat POD: "+error.message;
-   });
-  const status=document.createElement("p");
-  const badge=document.createElement("span");
-  badge.className="badge";
-  badge.textContent=o.status||"Menunggu Konfirmasi";
-  status.append(badge);
-
-  const gps=document.createElement("p");
-  gps.className="muted";
-  const lat=Number(o.latitude);
-  const lng=Number(o.longitude);
-  const hasGps=Number.isFinite(lat)&&Number.isFinite(lng)&&
-   o.latitude!==null&&o.longitude!==null&&
-   o.latitude!==""&&o.longitude!=="";
-
-  if(hasGps){
-   gps.textContent="GPS: "+lat+", "+lng+" ";
-   const map=document.createElement("a");
-   map.href="https://www.google.com/maps?q="+encodeURIComponent(lat+","+lng);
-   map.target="_blank";
-   map.rel="noopener";
-   map.textContent="Buka Peta";
-   gps.append(map);
-  }else{
-   gps.textContent="Lokasi GPS belum tersedia pada pesanan ini.";
-  }
-
-  const trackingWrap=document.createElement("div");
-  trackingWrap.className="order-field";
-  const trackingLabel=document.createElement("label");
-  trackingLabel.textContent="Nomor resi / nomor pelacakan";
-  const trackingInput=document.createElement("input");
-  trackingInput.type="text";
-  trackingInput.placeholder="Masukkan nomor resi";
-  trackingInput.value=o.trackingNumber||"";
-  const saveTracking=document.createElement("button");
-  saveTracking.className="light";
-  saveTracking.textContent="Simpan Nomor Resi";
-  saveTracking.onclick=async()=>{
-   const trackingNumber=trackingInput.value.trim();
-   saveTracking.disabled=true;
-   try{
-    await updateDoc(doc(db,"orders",o.id),{
-     trackingNumber:trackingNumber,
-     trackingUpdatedAt:serverTimestamp(),
-     updatedAt:serverTimestamp()
-    });
-    alert(trackingNumber?"Nomor resi berhasil disimpan.":"Nomor resi berhasil dikosongkan.");
-   }catch(e){
-    alert("Gagal menyimpan nomor resi: "+e.message);
-   }finally{
-    saveTracking.disabled=false;
-   }
-    };
-  trackingWrap.append(trackingLabel,trackingInput,saveTracking);
-  const courierLabel=document.createElement("label");
-  courierLabel.textContent="Tugaskan kurir";
-  const select=document.createElement("select");
-  const empty=document.createElement("option");
-  empty.value="";empty.textContent="Pilih kurir";
-  select.append(empty);
-
-  couriers.forEach(c=>{
-   const option=document.createElement("option");
-   option.value=c.id;
-   option.textContent=c.name||c.email||c.id;
-   if(c.id===o.courierId)option.selected=true;
-   select.append(option);
-  });
-
-  const assign=document.createElement("button");
-  assign.className="primary";
-  assign.textContent="Simpan Kurir";
-  
-assign.onclick=async()=>{
- if(!select.value){
-  alert("Pilih kurir terlebih dahulu.");
-  return;
- }
-
- const selectedCourier=couriers.find(
-  c=>c.id===select.value
- );
-
- if(!selectedCourier){
-  alert("Data kurir tidak ditemukan.");
-  return;
- }
-
- try{
-  await updateDoc(doc(db,"orders",o.id),{
-   courierId:selectedCourier.id,
-   courierName:selectedCourier.name||selectedCourier.email||"Kurir RumaGo",
-   courierPhone:selectedCourier.phone||"",
-   status:"Ditugaskan",
-   updatedAt:serverTimestamp()
-  });
-
-  alert("Kurir berhasil ditugaskan.");
- }catch(e){
-  alert("Gagal menugaskan kurir: "+e.message);
- }
-};
-
-  const statusLabel=document.createElement("label");
-  statusLabel.textContent="Status pesanan";
-  const statusSelect=document.createElement("select");
-  ["Menunggu Konfirmasi","Diproses","Ditugaskan","Dalam Pengiriman","Terkirim","Dibatalkan"].forEach(s=>{
-   const op=document.createElement("option");
-   op.value=s;op.textContent=s;
-   if((o.status||"Menunggu Konfirmasi")===s)op.selected=true;
-   statusSelect.append(op);
-  });
-
-  const updateStatus=document.createElement("button");
-  updateStatus.className="light";
-  updateStatus.textContent="Perbarui Status";
-  updateStatus.onclick=async()=>{
- try{
-  const orderRef=doc(db,"orders",o.id);
-  const nextStatus=statusSelect.value;
-
-  await runTransaction(db,async(transaction)=>{
-   const orderSnap=await transaction.get(orderRef);
-
-   if(!orderSnap.exists()){
-    throw new Error("Pesanan tidak ditemukan.");
-   }
-
-   const current=orderSnap.data();
-
-   if(current.stockManaged!==true){
-    transaction.update(orderRef,{
-     status:nextStatus,
-     updatedAt:serverTimestamp()
-    });
-    return;
-   }
-
-   if(current.status==="Dibatalkan" && nextStatus!=="Dibatalkan"){
-    throw new Error("Pesanan yang sudah dibatalkan tidak dapat dibuka kembali.");
-   }
-
-   if(nextStatus==="Diproses" && current.stockDeducted!==true){
-
-    const items=Array.isArray(current.items)?current.items:[];
-
-    if(!items.length){
-     throw new Error("Data produk pesanan kosong.");
-    }
-
-    const quantities={};
-    const names={};
-
-    items.forEach(item=>{
-     const id=String(item.id||"");
-     const qty=Number(item.qty);
-
-     if(!id || !Number.isInteger(qty) || qty<=0){
-      throw new Error("Data produk atau jumlah pesanan tidak valid.");
-     }
-
-     quantities[id]=(quantities[id]||0)+qty;
-     names[id]=item.name||id;
-    });
-
-    const ids=Object.keys(quantities);
-    const refs=ids.map(id=>doc(db,"products",id));
-    const snaps=await Promise.all(
-     refs.map(ref=>transaction.get(ref))
-    );
-
 
 function renderOrders(){
  $("totalOrders").textContent=orders.length;
@@ -849,23 +485,28 @@ function renderOrders(){
   payment.textContent="Metode Pembayaran: "+(o.paymentMethod||"-");
 
   const paymentStatus=document.createElement("p");
-  paymentStatus.textContent="Status Pembayaran: "+(o.paymentStatus||"Belum ada status");
+  paymentStatus.textContent="Status Pembayaran: "+
+   (o.paymentStatus||"Belum ada status");
 
   const paymentVerification=document.createElement("div");
   paymentVerification.className="order-field";
 
   if((o.paymentMethod||"").toUpperCase()==="COD"){
-   paymentVerification.textContent="Verifikasi pembayaran tidak diperlukan untuk COD.";
+   paymentVerification.textContent=
+    "Verifikasi pembayaran tidak diperlukan untuk COD.";
   }else{
    const paymentSelect=document.createElement("select");
 
-   ["Menunggu Verifikasi","Pembayaran Diterima","Pembayaran Ditolak"].forEach(s=>{
-    const op=document.createElement("option");
-    op.value=s;
-    op.textContent=s;
-    if((o.paymentStatus||"Menunggu Verifikasi")===s)op.selected=true;
-    paymentSelect.append(op);
-   });
+   ["Menunggu Verifikasi","Pembayaran Diterima","Pembayaran Ditolak"]
+    .forEach(s=>{
+     const op=document.createElement("option");
+     op.value=s;
+     op.textContent=s;
+     if((o.paymentStatus||"Menunggu Verifikasi")===s){
+      op.selected=true;
+     }
+     paymentSelect.append(op);
+    });
 
    const verifyButton=document.createElement("button");
    verifyButton.className="light";
@@ -922,7 +563,8 @@ function renderOrders(){
 
     if(proof.imageBase64){
      const photo=document.createElement("img");
-     photo.src="data:"+(proof.mimeType||"image/jpeg")+";base64,"+proof.imageBase64;
+     photo.src="data:"+(proof.mimeType||"image/jpeg")+
+      ";base64,"+proof.imageBase64;
      photo.alt="Foto bukti pengiriman";
      photo.style.maxWidth="100%";
      photo.style.maxHeight="300px";
@@ -958,7 +600,8 @@ function renderOrders(){
    gps.textContent="GPS: "+lat+", "+lng+" ";
 
    const map=document.createElement("a");
-   map.href="https://www.google.com/maps?q="+encodeURIComponent(lat+","+lng);
+   map.href="https://www.google.com/maps?q="+
+    encodeURIComponent(lat+","+lng);
    map.target="_blank";
    map.rel="noopener";
    map.textContent="Buka Peta";
@@ -1035,7 +678,6 @@ function renderOrders(){
    }
 
    const selectedCourier=couriers.find(c=>c.id===select.value);
-
    if(!selectedCourier){
     alert("Data kurir tidak ditemukan.");
     return;
@@ -1046,7 +688,8 @@ function renderOrders(){
    try{
     await updateDoc(doc(db,"orders",o.id),{
      courierId:selectedCourier.id,
-     courierName:selectedCourier.name||selectedCourier.email||"Kurir RumaGo",
+     courierName:selectedCourier.name||
+      selectedCourier.email||"Kurir RumaGo",
      courierPhone:selectedCourier.phone||"",
      status:"Ditugaskan",
      updatedAt:serverTimestamp()
@@ -1059,7 +702,7 @@ function renderOrders(){
     assign.disabled=false;
    }
   };
-
+ 
   // PEMBARUAN STATUS
   const statusLabel=document.createElement("label");
   statusLabel.textContent="Status pesanan";
@@ -1263,7 +906,7 @@ function renderOrders(){
   $("orderList").append(box);
  });
 }
- }
+
 async function loadPaymentSettings(){
  try{
   const snap=await getDoc(doc(db,"settings","payment"));
@@ -1280,7 +923,7 @@ async function loadPaymentSettings(){
   $("paymentMessage").textContent="Gagal memuat: "+e.message;
  }
 }
- 
+
 async function savePaymentSettings(){
  const codEnabled=$("codEnabled").checked;
  const bankEnabled=$("bankEnabled").checked;
