@@ -548,6 +548,96 @@ if((o.paymentMethod||"").toUpperCase()==="COD"){
 
  paymentVerification.append(paymentSelect,verifyButton);
  }
+  const podBox=document.createElement("div");
+  podBox.className="order-field";
+  podBox.textContent="Bukti pengiriman: memuat...";
+  box.append(podBox);
+
+  getDoc(doc(db,"orders",o.id,"deliveryProofs","latest"))
+   .then(proofSnap=>{
+    if(!proofSnap.exists()){
+     podBox.textContent="Bukti pengiriman: belum tersedia.";
+     return;
+    }
+
+    const proof=proofSnap.data();
+    podBox.replaceChildren();
+
+    const heading=document.createElement("b");
+    heading.textContent="📸 Bukti Pengiriman (POD)";
+
+    const recipient=document.createElement("p");
+    recipient.textContent="Nama penerima: "+(proof.recipientName||"-");
+
+    const delivered=document.createElement("p");
+    const deliveryDate=proof.deliveredAt?.toDate
+     ? proof.deliveredAt.toDate().toLocaleString("id-ID")
+     : "-";
+    delivered.textContent="Waktu pengiriman: "+deliveryDate;
+
+    podBox.append(heading,recipient,delivered);
+
+    if(proof.imageBase64){
+     const photo=document.createElement("img");
+     photo.src="data:"+(proof.mimeType||"image/jpeg")+";base64,"+proof.imageBase64;
+     photo.alt="Foto bukti pengiriman";
+     photo.style.maxWidth="100%";
+     photo.style.maxHeight="300px";
+     photo.style.objectFit="contain";
+     photo.style.display="block";
+     photo.style.marginTop="10px";
+     podBox.append(photo);
+    }
+   })
+   .catch(error=>{
+    podBox.textContent="Gagal memuat POD: "+error.message;
+   });
+  
+  
+  const podBox=document.createElement("div");
+  podBox.className="order-field";
+  podBox.textContent="Bukti pengiriman: memuat...";
+  box.append(podBox);
+
+  getDoc(doc(db,"orders",o.id,"deliveryProofs","latest"))
+   .then(proofSnap=>{
+    if(!proofSnap.exists()){
+     podBox.textContent="Bukti pengiriman: belum tersedia.";
+     return;
+    }
+
+    const proof=proofSnap.data();
+    podBox.replaceChildren();
+
+    const heading=document.createElement("b");
+    heading.textContent="📸 Bukti Pengiriman (POD)";
+
+    const recipient=document.createElement("p");
+    recipient.textContent="Nama penerima: "+(proof.recipientName||"-");
+
+    const delivered=document.createElement("p");
+    const deliveryDate=proof.deliveredAt?.toDate
+     ? proof.deliveredAt.toDate().toLocaleString("id-ID")
+     : "-";
+    delivered.textContent="Waktu pengiriman: "+deliveryDate;
+
+    podBox.append(heading,recipient,delivered);
+
+    if(proof.imageBase64){
+     const photo=document.createElement("img");
+     photo.src="data:"+(proof.mimeType||"image/jpeg")+";base64,"+proof.imageBase64;
+     photo.alt="Foto bukti pengiriman";
+     photo.style.maxWidth="100%";
+     photo.style.maxHeight="300px";
+     photo.style.objectFit="contain";
+     photo.style.display="block";
+     photo.style.marginTop="10px";
+     podBox.append(photo);
+    }
+   })
+   .catch(error=>{
+    podBox.textContent="Gagal memuat POD: "+error.message;
+   });
   const status=document.createElement("p");
   const badge=document.createElement("span");
   badge.className="badge";
