@@ -655,6 +655,7 @@ async function submitOrder(){
 
   const payload={
    orderNumber,
+   stockManaged:true,
    customerId:auth.currentUser.uid,
    customerName:name,
    phone,
