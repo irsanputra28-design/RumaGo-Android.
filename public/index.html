@@ -597,7 +597,56 @@ function renderOrders(){
  });
 }
 
-// KODE PEMBAYARAN AKAN DITAMBAHKAN DI SINI
+async function loadPaymentSettings(){
+ try{
+  const snap=await getDoc(doc(db,"settings","payment"));
+  const p=snap.exists()?snap.data():{};
+
+  $("codEnabled").checked=p.codEnabled!==false;
+  $("bankEnabled").checked=p.bankEnabled===true;
+  $("bankName").value=p.bankName||"";
+  $("bankAccount").value=p.bankAccount||"";
+  $("bankHolder").value=p.bankHolder||"";
+  $("qrisEnabled").checked=p.qrisEnabled===true;
+  $("qrisImageUrl").value=p.qrisImageUrl||"";
+ }catch(e){
+  $("paymentMessage").textContent="Gagal memuat: "+e.message;
+ }
+}
+
+async function savePaymentSettings(){
+ const codEnabled=$("codEnabled").checked;
+ const bankEnabled=$("bankEnabled").checked;
+ const bankName=$("bankName").value.trim();
+ const bankAccount=$("bankAccount").value.trim();
+ const bankHolder=$("bankHolder").value.trim();
+ const qrisEnabled=$("qrisEnabled").checked;
+ const qrisImageUrl=$("qrisImageUrl").value.trim();
+
+ if(bankEnabled&&(!bankName||!bankAccount||!bankHolder)){
+  alert("Lengkapi nama bank, nomor rekening, dan pemilik rekening.");
+  return;
+ }
+
+ if(qrisEnabled&&!/^https?:\/\//i.test(qrisImageUrl)){
+  alert("Masukkan URL gambar QRIS yang valid.");
+  return;
+ }
+
+ try{
+  await setDoc(doc(db,"settings","payment"),{
+   codEnabled,bankEnabled,bankName,bankAccount,bankHolder,
+   qrisEnabled,qrisImageUrl,
+   updatedAt:serverTimestamp()
+  },{merge:true});
+
+  $("paymentMessage").textContent="Pengaturan pembayaran berhasil disimpan.";
+ }catch(e){
+  $("paymentMessage").textContent="Gagal menyimpan: "+e.message;
+ }
+}
+
+$("savePayment").onclick=savePaymentSettings;
 </script>
 </body>
 </html>
