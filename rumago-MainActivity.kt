@@ -67,7 +67,6 @@ class MainActivity : Activity() {
             )
             .build()
 
-        
 webView.webViewClient = object : WebViewClient() {
 
     override fun shouldOverrideUrlLoading(
@@ -80,7 +79,10 @@ webView.webViewClient = object : WebViewClient() {
         if (
             url.startsWith("https://www.google.com/maps") ||
             url.startsWith("https://maps.google.com") ||
-            url.startsWith("geo:")
+            url.startsWith("geo:") ||
+            url.startsWith("https://wa.me/") ||
+            url.startsWith("https://api.whatsapp.com/") ||
+            url.startsWith("https://www.whatsapp.com/")
         ) {
             return try {
                 val intent = Intent(
@@ -88,13 +90,13 @@ webView.webViewClient = object : WebViewClient() {
                     Uri.parse(url)
                 )
 
-                this@MainActivity.startActivity(intent)
+                startActivity(intent)
                 true
 
             } catch (e: Exception) {
                 android.widget.Toast.makeText(
                     this@MainActivity,
-                    "Tidak dapat membuka Google Maps.",
+                    "Tidak dapat membuka aplikasi tujuan.",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
 
@@ -112,7 +114,6 @@ webView.webViewClient = object : WebViewClient() {
         return assetLoader.shouldInterceptRequest(request.url)
     }
 }
-
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onGeolocationPermissionsShowPrompt(
