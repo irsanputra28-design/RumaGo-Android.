@@ -21,6 +21,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.content.Intent
+import android.net.Uri
 
 class MainActivity : Activity() {
 
@@ -65,14 +67,52 @@ class MainActivity : Activity() {
             )
             .build()
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(
-                view: WebView,
-                request: WebResourceRequest
-            ): WebResourceResponse? {
-                return assetLoader.shouldInterceptRequest(request.url)
+        
+webView.webViewClient = object : WebViewClient() {
+
+    override fun shouldOverrideUrlLoading(
+        view: WebView,
+        request: WebResourceRequest
+    ): Boolean {
+
+        val url = request.url.toString()
+
+        if (
+            url.startsWith("https://www.google.com/maps") ||
+            url.startsWith("https://maps.google.com") ||
+            url.startsWith("geo:")
+        ) {
+            return try {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(url)
+                )
+
+                this@MainActivity.startActivity(intent)
+                true
+
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Tidak dapat membuka Google Maps.",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+
+                true
             }
         }
+
+        return false
+    }
+
+    override fun shouldInterceptRequest(
+        view: WebView,
+        request: WebResourceRequest
+    ): WebResourceResponse? {
+        return assetLoader.shouldInterceptRequest(request.url)
+    }
+}
+
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onGeolocationPermissionsShowPrompt(
