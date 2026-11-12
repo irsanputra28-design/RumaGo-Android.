@@ -262,6 +262,7 @@ onAuthStateChanged(auth,async user=>{
   watchProducts();
   watchOrders();
   watchUsers();
+loadPaymentSettings();
  }catch(e){
   await signOut(auth);
   $("loginMessage").textContent="Gagal memeriksa akun: "+e.message;
