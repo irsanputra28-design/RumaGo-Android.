@@ -290,8 +290,18 @@ function renderOrders(list){
  }
 
  c.innerHTML=orders.map(o=>{
-  const nomor=o.orderNumber||"Menunggu nomor transaksi";
-  const resi=o.trackingNumber||"Belum tersedia";
+  const tanggal=o.createdAt?.toDate
+ ? o.createdAt.toDate()
+ : new Date();
+
+const kodeTanggal=tanggal.getFullYear()+
+ String(tanggal.getMonth()+1).padStart(2,"0")+
+ String(tanggal.getDate()).padStart(2,"0");
+
+const nomor=o.orderNumber||
+ ("RMG-"+kodeTanggal+"-"+String(o.id||"").slice(-6).toUpperCase());
+
+const resi=o.trackingNumber||"Belum tersedia";
 
   return `<div class="card">
    <div style="display:flex;justify-content:space-between;gap:8px">
