@@ -94,17 +94,6 @@ jobs:
 
           echo "Manifest dan izin GPS berhasil disiapkan."
 
-      - name: Update RumaGo Account Page
-        run: |
-          set -e
-          test -f rumago-index.html
-          test -d RumaGo_Android_Project/app/src/main/assets
-
-          cp rumago-index.html \
-            RumaGo_Android_Project/app/src/main/assets/index.html
-
-          echo "Halaman akun berhasil diperbarui."
-
       - name: Copy Firebase Configuration
         run: |
           set -e
