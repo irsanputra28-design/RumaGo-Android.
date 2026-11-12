@@ -82,7 +82,8 @@ webView.webViewClient = object : WebViewClient() {
             url.startsWith("geo:") ||
             url.startsWith("https://wa.me/") ||
             url.startsWith("https://api.whatsapp.com/") ||
-            url.startsWith("https://www.whatsapp.com/")
+            url.startsWith("https://www.whatsapp.com/") ||
+            url.startsWith("whatsapp://")
         ) {
             return try {
                 val intent = Intent(
