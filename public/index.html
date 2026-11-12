@@ -139,7 +139,51 @@ a{color:#0d6845;font-weight:bold}
 <p class="muted">Lokasi GPS ditampilkan jika pelanggan sudah mengirimkan koordinat saat checkout.</p>
 <div id="orderList">Memuat pesanan...</div>
 </div>
+</section> 
+<section id="paymentPanel" class="hidden">
+ <div class="card">
+  <h3>Pengaturan Pembayaran</h3>
+
+  <label>
+   <input type="checkbox" id="codEnabled" checked>
+   Aktifkan COD (Bayar di Tempat)
+  </label>
+
+  <hr>
+
+  <label>
+   <input type="checkbox" id="bankEnabled">
+   Aktifkan Transfer Bank
+  </label>
+
+  <label>Nama Bank</label>
+  <input id="bankName" placeholder="Contoh: BCA">
+
+  <label>Nomor Rekening</label>
+  <input id="bankAccount" placeholder="Masukkan nomor rekening">
+
+  <label>Nama Pemilik Rekening</label>
+  <input id="bankHolder" placeholder="Nama pemilik rekening">
+
+  <hr>
+
+  <label>
+   <input type="checkbox" id="qrisEnabled">
+   Aktifkan QRIS
+  </label>
+
+  <label>URL Gambar QRIS</label>
+  <input id="qrisImageUrl" type="url" placeholder="URL gambar QRIS">
+
+  <p class="muted">QRIS dapat diaktifkan setelah gambar tersedia.</p>
+
+  <button class="primary full" id="savePayment">
+   Simpan Pengaturan Pembayaran
+  </button>
+  <div id="paymentMessage" class="muted"></div>
+ </div>
 </section>
+ 
 </section>
 </main>
 
@@ -230,9 +274,12 @@ document.querySelectorAll("[data-tab]").forEach(btn=>{
  btn.onclick=()=>{
   document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
-  const isProducts=btn.dataset.tab==="products";
-  $("productsPanel").classList.toggle("hidden",!isProducts);
-  $("ordersPanel").classList.toggle("hidden",isProducts);
+
+  const tab=btn.dataset.tab;
+
+  $("productsPanel").classList.toggle("hidden",tab!=="products");
+  $("ordersPanel").classList.toggle("hidden",tab!=="orders");
+  $("paymentPanel").classList.toggle("hidden",tab!=="payment");
  };
 });
 
