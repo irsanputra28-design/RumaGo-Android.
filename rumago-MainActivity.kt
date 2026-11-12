@@ -120,29 +120,52 @@ webView.webViewClient = object : WebViewClient() {
 }
 
         webView.webChromeClient = object : WebChromeClient() {
-            override fun onGeolocationPermissionsShowPrompt(
-                origin: String,
-                callback: GeolocationPermissions.Callback
-            ) {
-                if (hasLocationPermission()) {
-                    callback.invoke(origin, true, false)
-                } else {
-                    pendingGeoOrigin = origin
-                    pendingGeoCallback = callback
 
-                    if (android.os.Build.VERSION.SDK_INT >= 23) {
-                        requestPermissions(
-                            arrayOf(
-                                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                android.Manifest.permission.ACCESS_COARSE_LOCATION
-                            ),
-                            LOCATION_REQUEST_CODE
-                        )
-                    } else {
-                        callback.invoke(origin, true, false)
-                    }
-                }
+    override fun onGeolocationPermissionsShowPrompt(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
+        if (hasLocationPermission()) {
+            callback.invoke(origin, true, false)
+        } else {
+            pendingGeoOrigin = origin
+            pendingGeoCallback = callback
+
+            if (android.os.Build.VERSION.SDK_INT >= 23) {
+                requestPermissions(
+                    arrayOf(
+                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    LOCATION_REQUEST_CODE
+                )
+            } else {
+                callback.invoke(origin, true, false)
             }
+        }
+    }
+
+    override fun onShowFileChooser(
+        webView: WebView?,
+        filePathCallback: ValueCallback<Array<Uri>>,
+        fileChooserParams: FileChooserParams
+    ): Boolean {
+        pendingFileCallback?.onReceiveValue(null)
+        pendingFileCallback = filePathCallback
+
+        return try {
+            val intent = fileChooserParams.createIntent()
+            startActivityForResult(
+                intent,
+                FILE_CHOOSER_REQUEST_CODE
+            )
+            true
+        } catch (e: Exception) {
+            pendingFileCallback?.onReceiveValue(null)
+            pendingFileCallback = null
+            false
+        }
+    }
         }
 
         webView.addJavascriptInterface(RumaGoBridge(), "Android")
@@ -152,6 +175,23 @@ webView.webViewClient = object : WebViewClient() {
         )
     }
 
+    override fun onActivityResult(
+    requestCode: Int,
+    resultCode: Int,
+    data: Intent?
+) {
+    super.onActivityResult(requestCode, resultCode, data)
+
+    if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+        val results = WebChromeClient.FileChooserParams.parseResult(
+            resultCode,
+            data
+        )
+
+        pendingFileCallback?.onReceiveValue(results)
+        pendingFileCallback = null
+    }
+    }
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
