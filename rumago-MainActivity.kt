@@ -104,10 +104,9 @@ class MainActivity : Activity() {
 
         webView.addJavascriptInterface(RumaGoBridge(), "Android")
 
-        webView.loadUrl(
-            "https://appassets.androidplatform.net/assets/index.html"
+                webView.loadUrl(
+            "https://irsanputra28-design.github.io/RumaGo-Android./pelanggan.html"
         )
-    }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
