@@ -150,21 +150,69 @@ function renderCart(){
  if(!cart.length){checkoutLocation=null;c.innerHTML=`<div class="empty"><div style="font-size:40px">🛒</div><h3>Keranjang masih kosong</h3><p>Silakan pilih produk terlebih dahulu.</p><button class="btn" onclick="showPage('home')">Mulai Belanja</button></div>`;return}
  c.innerHTML=cart.map(x=>`<div class="cart-row"><div style="flex:1"><b>${esc(x.name)}</b><div class="muted">${rupiah(x.price)} / produk</div><b style="color:var(--green)">${rupiah(x.price*x.qty)}</b></div><div><div class="qty"><button onclick="changeQty('${esc(x.id)}',-1)">−</button><b>${x.qty}</b><button onclick="changeQty('${esc(x.id)}',1)">+</button></div><button class="small-btn" onclick="removeCartItem('${esc(x.id)}')">Hapus</button></div></div>`).join("")+`<hr><div class="total-row"><span>Total belanja</span><b style="color:var(--green)">${rupiah(cartTotal())}</b></div><button class="btn btn-block" onclick="checkout()">Lanjut Checkout</button>`;
 }
-function checkout(){
+async function checkout(){
  if(!cart.length){toast("Keranjang masih kosong.");return}
  if(!authUser){toast("Silakan login terlebih dahulu.");showPage("account");return}
+
  checkoutLocation=null;
- $("cartContent").innerHTML=`<h3>Data Pengiriman</h3>
+
+ const c=$("cartContent");
+ c.innerHTML=`<div class="card empty">Memuat metode pembayaran...</div>`;
+
+ let payment={codEnabled:true,bankEnabled:false,qrisEnabled:false};
+
+ try{
+  const snap=await getDoc(doc(db,"settings","payment"));
+  if(snap.exists())payment={...payment,...snap.data()};
+ }catch(e){
+  console.error("Pengaturan pembayaran:",e);
+  toast("Pengaturan pembayaran gagal dimuat.");
+  c.innerHTML=`<div class="card empty">Gagal memuat metode pembayaran. Periksa koneksi dan aturan Firestore.</div>`;
+  return;
+ }
+
+ const methods=[];
+ if(payment.codEnabled)methods.push(`<option value="COD">COD (Bayar di Tempat)</option>`);
+ if(payment.bankEnabled)methods.push(`<option value="Transfer Bank">Transfer Bank</option>`);
+ if(payment.qrisEnabled&&payment.qrisImageUrl)methods.push(`<option value="QRIS">QRIS</option>`);
+
+ if(!methods.length){
+  c.innerHTML=`<div class="card empty">Belum ada metode pembayaran yang aktif. Silakan hubungi admin RumaGo.</div><button class="btn btn-light btn-block" onclick="renderCart()">Kembali</button>`;
+  return;
+ }
+
+ window.rgPaymentSettings=payment;
+
+ c.innerHTML=`<h3>Data Pengiriman</h3>
  <div class="form-group"><label>Nama Penerima</label><input id="checkoutName" value="${esc(authUser.name||"")}" placeholder="Nama penerima"></div>
  <div class="form-group"><label>Nomor HP</label><input id="checkoutPhone" value="${esc(authUser.phone||"")}" placeholder="08xxxxxxxxxx" type="tel"></div>
  <div class="gps-panel"><div class="gps-title">📍 Lokasi Pengiriman</div><div class="gps-description">Gunakan GPS HP untuk menentukan titik lokasi rumah atau tempat penerimaan pesanan Anda.</div><button type="button" class="btn btn-block" id="gpsButton" onclick="getCheckoutLocation()">📍 Gunakan Lokasi GPS Saya</button><div id="gpsStatus" class="gps-status">Lokasi belum dipilih. Anda juga dapat mengisi alamat secara manual.</div><div id="gpsCoordinates" class="gps-coordinates" style="display:none"></div></div>
  <div class="form-group"><label>Alamat Lengkap</label><input id="checkoutAddress" placeholder="Jalan, nomor rumah, RT/RW, kecamatan"></div>
  <div class="form-group"><label>Kota Pengiriman</label><input id="checkoutCity" placeholder="Kota tujuan"></div>
  <div class="form-group"><label>Jenis Pengiriman</label><select id="deliveryType"><option value="Instant">Instant</option><option value="Terjadwal">Terjadwal</option></select></div>
+ <div class="form-group"><label>Metode Pembayaran</label><select id="paymentMethod" onchange="showPaymentInfo()">${methods.join("")}</select></div>
+ <div id="paymentInfo" class="notice"></div>
  <div class="form-group"><label>Catatan Pesanan</label><textarea id="checkoutNote" rows="2" placeholder="Opsional"></textarea></div><hr>
  <div class="total-row"><span>Total pembayaran</span><b style="color:var(--green)">${rupiah(cartTotal())}</b></div>
  <div class="notice">Pesanan dan koordinat GPS (jika dipilih) akan disimpan ke database RumaGo.</div>
  <button class="btn btn-block" id="orderButton" onclick="submitOrder()">Buat Pesanan</button><button class="btn btn-light btn-block" onclick="renderCart()">Kembali ke Keranjang</button>`;
+
+ showPaymentInfo();
+}
+
+function showPaymentInfo(){
+ const method=$("paymentMethod")?.value;
+ const p=window.rgPaymentSettings||{};
+ const box=$("paymentInfo");
+ if(!box)return;
+
+ if(method==="COD"){
+  box.textContent="Pembayaran dilakukan saat pesanan diterima.";
+ }else if(method==="Transfer Bank"){
+  box.innerHTML=`Transfer ke rekening berikut:<br><b>${esc(p.bankName)}</b><br>Nomor rekening: <b>${esc(p.bankAccount)}</b><br>Atas nama: <b>${esc(p.bankHolder)}</b><br><br>Pembayaran akan diverifikasi admin.`;
+ }else if(method==="QRIS"){
+  box.innerHTML=`Scan QRIS berikut untuk membayar:<br><img src="${esc(p.qrisImageUrl)}" alt="QRIS RumaGo" style="display:block;max-width:220px;width:100%;margin:12px auto;border-radius:10px" onerror="this.style.display='none'"><br>Pembayaran akan diverifikasi admin.`;
+ }
 }
 function setGpsStatus(message,type){const s=$("gpsStatus");if(s){s.className="gps-status"+(type?" "+type:"");s.textContent=message}}
 function getCheckoutLocation(){
@@ -182,7 +230,7 @@ function getCheckoutLocation(){
   const msg=err.code===1?"Izin lokasi ditolak. Aktifkan izin lokasi aplikasi RumaGo di pengaturan HP.":err.code===2?"Lokasi tidak tersedia. Aktifkan GPS dan periksa sinyal perangkat.":err.code===3?"Waktu pencarian habis. Coba lagi di area terbuka.":"Lokasi gagal diperoleh.";
   checkoutLocation=null;setGpsStatus(msg,"error");if(b){b.disabled=false;b.textContent="📍 Coba Ambil Lokasi Lagi"}
  },{enableHighAccuracy:true,timeout:25000,maximumAge:0});
-}
+ }
 async function submitOrder(){
  if(busy)return;
 
@@ -190,9 +238,15 @@ async function submitOrder(){
  const phone=$("checkoutPhone").value.trim();
  const address=$("checkoutAddress").value.trim();
  const city=$("checkoutCity").value.trim();
+ const paymentMethod=$("paymentMethod")?.value;
 
  if(!name||!phone||!address||!city){
   toast("Mohon lengkapi nama, nomor HP, alamat, dan kota.");
+  return;
+ }
+
+ if(!paymentMethod){
+  toast("Silakan pilih metode pembayaran.");
   return;
  }
 
@@ -234,11 +288,14 @@ async function submitOrder(){
    address,
    city,
    delivery:$("deliveryType").value,
+   paymentMethod,
+   paymentStatus:paymentMethod==="COD"
+    ?"Bayar di Tempat"
+    :"Menunggu Verifikasi",
    note:$("checkoutNote").value.trim(),
    items,
    total:cartTotal(),
    status:"Menunggu Konfirmasi",
-   paymentStatus:"Menunggu Pembayaran",
    trackingNumber:"",
    latitude:checkoutLocation?.latitude??null,
    longitude:checkoutLocation?.longitude??null,
@@ -266,6 +323,7 @@ async function submitOrder(){
   busy=false;
  }
 }
+
 function loadOrders(){
  const c=$("ordersContent");
  if(!authUser){c.innerHTML=`<div class="card empty">Silakan login untuk melihat riwayat pesanan.</div>`;return}
