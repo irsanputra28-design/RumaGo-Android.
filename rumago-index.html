@@ -290,6 +290,17 @@ async function saveProfile(){
   if(btn) btn.disabled=false;
  }
 }
+
+async function logoutUser(){
+ try{
+  await signOut(auth);
+  toast("Berhasil keluar.");
+ }catch(e){
+  console.error(e);
+  toast("Gagal keluar: "+e.message);
+ }
+}
+
 Object.assign(window, {
  showPage,
  selectCategory,
@@ -303,8 +314,52 @@ Object.assign(window, {
  renderCart,
  saveProfile,
  toggleAuthMode,
- submitAuth
+ submitAuth,
+ logoutUser
 });
+
+startProductListener();
+
+onAuthStateChanged(auth, async user => {
+ if(stopOrders){
+  stopOrders();
+  stopOrders=null;
+ }
+
+ if(user){
+  try{
+   const snap=await getDoc(doc(db,"users",user.uid));
+   const data=snap.exists()?snap.data():{};
+
+   authUser={
+    uid:user.uid,
+    email:user.email||"",
+    name:data.name||"",
+    phone:data.phone||"",
+    role:data.role||"customer"
+   };
+  }catch(e){
+   console.error("Profil pengguna:",e);
+   authUser={
+    uid:user.uid,
+    email:user.email||"",
+    name:"",
+    phone:"",
+    role:"customer"
+   };
+  }
+ }else{
+  authUser=null;
+ }
+
+ renderAccount();
+ loadOrders();
+
+ if(typeof updateCartCount==="function"){
+  updateCartCount();
+ }
+});
+
  </script>
 </body>
 </html>
