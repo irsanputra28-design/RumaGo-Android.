@@ -35,14 +35,12 @@ class MainActivity : Activity() {
     private var pendingGeoOrigin: String? = null
 
     private fun hasLocationPermission(): Boolean {
-        return if (android.os.Build.VERSION.SDK_INT < 23) {
-            true
-        } else {
-            checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED ||
+        if (android.os.Build.VERSION.SDK_INT < 23) return true
+
+        return checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
             checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
-        }
+            PackageManager.PERMISSION_GRANTED
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,9 +102,10 @@ class MainActivity : Activity() {
 
         webView.addJavascriptInterface(RumaGoBridge(), "Android")
 
-                webView.loadUrl(
+        webView.loadUrl(
             "https://irsanputra28-design.github.io/RumaGo-Android./pelanggan.html"
         )
+    }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -202,7 +201,6 @@ class MainActivity : Activity() {
                     .document(user.uid)
                     .set(profile)
                     .addOnSuccessListener {
-
                         val safeProfile = mapOf(
                             "name" to name.trim(),
                             "phone" to phone.trim(),
@@ -216,11 +214,7 @@ class MainActivity : Activity() {
                                 .put("message", "Registrasi berhasil. Selamat datang di RumaGo.")
                                 .put(
                                     "user",
-                                    userJson(
-                                        user.uid,
-                                        user.email,
-                                        safeProfile
-                                    )
+                                    userJson(user.uid, user.email, safeProfile)
                                 )
                         )
                     }
@@ -251,7 +245,6 @@ class MainActivity : Activity() {
                 email.trim(),
                 password
             ).addOnSuccessListener { result ->
-
                 sendCallback(
                     "onRumaGoAuthResult",
                     JSONObject()
@@ -298,7 +291,6 @@ class MainActivity : Activity() {
                     .document(user.uid)
                     .get()
                     .addOnSuccessListener { doc ->
-
                         val data = doc.data ?: emptyMap<String, Any>()
 
                         sendCallback(
@@ -346,7 +338,6 @@ class MainActivity : Activity() {
                 .document(user.uid)
                 .get()
                 .addOnSuccessListener { doc ->
-
                     val data = doc.data ?: emptyMap<String, Any>()
 
                     sendCallback(
@@ -469,7 +460,10 @@ class MainActivity : Activity() {
                             "onRumaGoOrderResult",
                             JSONObject()
                                 .put("success", false)
-                                .put("message", e.localizedMessage ?: "Gagal menyimpan pesanan.")
+                                .put(
+                                    "message",
+                                    e.localizedMessage ?: "Gagal menyimpan pesanan."
+                                )
                         )
                     }
 
@@ -501,7 +495,6 @@ class MainActivity : Activity() {
                 .whereEqualTo("customerId", user.uid)
                 .get()
                 .addOnSuccessListener { snapshot ->
-
                     val result = JSONArray()
 
                     for (doc in snapshot.documents) {
@@ -555,18 +548,7 @@ class MainActivity : Activity() {
                             .put("orders", result)
                     )
                 }
-                
-.addOnFailureListener { e ->
-    sendCallback(
-        "onRumaGoOrdersResult",
-        JSONObject()
-            .put("success", false)
-            .put(
-                "message",
-                e.localizedMessage ?: "Gagal memuat pesanan."
-            )
-    )
-}
-}
-}
-}
+                .addOnFailureListener { e ->
+                    sendCallback(
+                        "onRumaGoOrdersResult",
+                        JSONObjec
