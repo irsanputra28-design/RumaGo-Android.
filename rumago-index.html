@@ -275,10 +275,61 @@ function loadOrders(){
   orders=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));renderOrders(orders);
  },err=>{console.error(err);c.innerHTML=`<div class="card empty">Riwayat pesanan gagal dimuat. ${esc(err.message)}</div>`});
 }
+
 function renderOrders(list){
- const c=$("ordersContent");orders=Array.isArray(list)?list:[];
- if(!orders.length){c.innerHTML=`<div class="card empty"><div style="font-size:40px">📦</div><h3>Belum ada pesanan</h3><p>Pesanan Anda akan tampil di sini.</p></div>`;return}
- c.innerHTML=orders.map(o=>`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(o.orderNumber||o.id||"Pesanan")}</b><span class="status">${esc(o.status||"Diproses")}</span></div><p class="muted">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("id-ID"):""}</p><hr>${(o.items||[]).map(i=>`<div class="cart-row"><span>${esc(i.name)} × ${Number(i.qty||0)}</span><b>${rupiah(Number(i.price||0)*Number(i.qty||0))}</b></div>`).join("")}<div class="total-row"><span>Total</span><b>${rupiah(o.total)}</b></div><div class="muted">Pengiriman: ${esc(o.delivery||"-")} · ${esc(o.city||"-")}</div></div>`).join("");
+ const c=$("ordersContent");
+ orders=Array.isArray(list)?list:[];
+
+ if(!orders.length){
+  c.innerHTML=`<div class="card empty">
+   <div style="font-size:40px">📦</div>
+   <h3>Belum ada pesanan</h3>
+   <p>Pesanan Anda akan tampil di sini.</p>
+  </div>`;
+  return;
+ }
+
+ c.innerHTML=orders.map(o=>{
+  const nomor=o.orderNumber||"Menunggu nomor transaksi";
+  const resi=o.trackingNumber||"Belum tersedia";
+
+  return `<div class="card">
+   <div style="display:flex;justify-content:space-between;gap:8px">
+    <b>${esc(nomor)}</b>
+    <span class="status">${esc(o.status||"Diproses")}</span>
+   </div>
+
+   <p class="muted">
+    ${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("id-ID"):""}
+   </p>
+
+   <div class="muted">
+    Nomor Resi: <b>${esc(resi)}</b>
+   </div>
+
+   <div class="muted">
+    Pembayaran: ${esc(o.paymentStatus||"Belum ditentukan")}
+   </div>
+
+   <hr>
+
+   ${(o.items||[]).map(i=>`
+    <div class="cart-row">
+     <span>${esc(i.name)} × ${Number(i.qty||0)}</span>
+     <b>${rupiah(Number(i.price||0)*Number(i.qty||0))}</b>
+    </div>
+   `).join("")}
+
+   <div class="total-row">
+    <span>Total</span>
+    <b>${rupiah(o.total)}</b>
+   </div>
+
+   <div class="muted">
+    Pengiriman: ${esc(o.delivery||"-")} · ${esc(o.city||"-")}
+   </div>
+  </div>`;
+ }).join("");
 }
 function renderAccount(){
  const c=$("accountContent");
