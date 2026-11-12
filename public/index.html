@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -15,9 +14,11 @@ header p{font-size:13px;margin:6px 0 0}
 main{max-width:950px;margin:auto;padding:15px}
 .card{background:white;border-radius:13px;padding:16px;margin-bottom:15px;box-shadow:0 2px 9px #00000008}
 h3{margin:0 0 14px}
-input,select,textarea{width:100%;padding:12px;border:1px solid #dce7df;border-radius:8px;margin:6px 0 12px;font-size:14px;background:white}
+input,select,textarea{width:100%;padding:12px;border:1px solid #dce7df;border-radius:8px;margin:6px 0 12px;font-size:14px;background:white;color:#183329}
+input[readonly]{background:#f3f7f4;color:#718078}
 label{font-size:13px;font-weight:bold}
 button{border:0;border-radius:8px;padding:11px 14px;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.6;cursor:not-allowed}
 .primary{background:#0d6845;color:white}
 .light{background:#e6f3eb;color:#0d6845}
 .danger{background:#fff0f0;color:#c62828}
@@ -39,6 +40,11 @@ button{border:0;border-radius:8px;padding:11px 14px;font-weight:bold;cursor:poin
 .badge{display:inline-block;background:#e7f3eb;color:#0d6845;padding:5px 8px;border-radius:20px;font-size:11px}
 #message,#loginMessage{font-size:13px;margin-top:10px;white-space:pre-wrap}
 a{color:#0d6845;font-weight:bold}
+.order p{margin:8px 0}
+.order-field{margin-top:12px}
+.order-field input{margin-bottom:8px}
+.small-note{font-size:11px;color:#718078;margin-top:-7px;margin-bottom:12px}
+@media(max-width:420px){main{padding:10px}.card{padding:13px}.stats{gap:8px}.stat{padding:11px}}
 </style>
 </head>
 <body>
@@ -82,6 +88,10 @@ a{color:#0d6845;font-weight:bold}
 <div class="card">
 <h3 id="formTitle">Tambah Produk</h3>
 <form id="productForm">
+<label>SKU Produk</label>
+<input id="pSku" readonly value="Dibuat otomatis saat produk disimpan">
+<div class="small-note">SKU dibuat otomatis dan tidak berubah saat produk diedit.</div>
+
 <label>Nama barang *</label>
 <input id="pName" required placeholder="Contoh: Beras Premium 5 Kg">
 
@@ -125,6 +135,7 @@ a{color:#0d6845;font-weight:bold}
 <section id="ordersPanel" class="hidden">
 <div class="card">
 <h3>Pesanan Pelanggan</h3>
+<p class="muted">Nomor transaksi lama tetap ditampilkan menggunakan ID pesanan. Nomor resi dapat diisi admin setelah pengiriman disiapkan.</p>
 <p class="muted">Lokasi GPS ditampilkan jika pelanggan sudah mengirimkan koordinat saat checkout.</p>
 <div id="orderList">Memuat pesanan...</div>
 </div>
@@ -167,6 +178,11 @@ const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",ma
 function message(text,ok=false){
  $("message").textContent=text;
  $("message").style.color=ok?"#0d6845":"#c62828";
+}
+
+/* SKU menggunakan ID dokumen Firestore agar unik dan tetap. */
+function makeSku(productId){
+ return "RMG-"+String(productId).toUpperCase();
 }
 
 $("loginBtn").onclick=async()=>{
@@ -232,7 +248,10 @@ function renderProducts(){
  $("totalProducts").textContent=products.length;
  $("totalStock").textContent=products.reduce((n,p)=>n+Number(p.stock||0),0);
  const key=$("searchProduct").value.toLowerCase();
- const list=products.filter(p=>String(p.name||"").toLowerCase().includes(key));
+ const list=products.filter(p=>
+  String(p.name||"").toLowerCase().includes(key)||
+  String(p.sku||"").toLowerCase().includes(key)
+ );
  $("productList").replaceChildren();
 
  if(!list.length){
@@ -254,7 +273,7 @@ function renderProducts(){
   name.textContent=p.name||"Tanpa nama";
   const detail=document.createElement("div");
   detail.className="muted";
-  detail.textContent=(p.category||"Lainnya")+" • "+money(p.price)+" • Stok "+(p.stock||0);
+  detail.textContent=(p.sku||"SKU belum dibuat")+" • "+(p.category||"Lainnya")+" • "+money(p.price)+" • Stok "+(p.stock||0);
 
   const actions=document.createElement("div");
   actions.className="actions";
@@ -305,12 +324,19 @@ $("productForm").onsubmit=async e=>{
  $("saveProduct").disabled=true;
  try{
   if(editingId){
+   const existing=products.find(p=>p.id===editingId);
+   data.sku=existing?.sku||makeSku(editingId);
    await updateDoc(doc(db,"products",editingId),data);
-   message("Produk berhasil diperbarui.",true);
+   message("Produk berhasil diperbarui. SKU: "+data.sku,true);
   }else{
    data.createdAt=serverTimestamp();
-   await addDoc(collection(db,"products"),data);
-   message("Produk berhasil ditambahkan.",true);
+   const newProduct=await addDoc(collection(db,"products"),data);
+   data.sku=makeSku(newProduct.id);
+   await updateDoc(doc(db,"products",newProduct.id),{
+    sku:data.sku,
+    updatedAt:serverTimestamp()
+   });
+   message("Produk berhasil ditambahkan. SKU: "+data.sku,true);
   }
   resetForm();
  }catch(e){
@@ -324,6 +350,7 @@ function editProduct(id){
  const p=products.find(x=>x.id===id);
  if(!p)return;
  editingId=id;
+ $("pSku").value=p.sku||makeSku(id)+" (akan disimpan saat diperbarui)";
  $("pName").value=p.name||"";
  $("pCategory").value=p.category||"";
  $("pPrice").value=p.price??0;
@@ -348,6 +375,7 @@ async function removeProduct(id){
 function resetForm(){
  editingId=null;
  $("productForm").reset();
+ $("pSku").value="Dibuat otomatis saat produk disimpan";
  $("formTitle").textContent="Tambah Produk";
  $("saveProduct").textContent="Simpan Produk";
  $("cancelEdit").classList.add("hidden");
@@ -394,7 +422,7 @@ function renderOrders(){
   box.className="order";
 
   const title=document.createElement("b");
-  title.textContent=o.orderNumber||o.id;
+  title.textContent="Transaksi: "+(o.orderNumber||o.id);
 
   const customer=document.createElement("p");
   customer.textContent=(o.customerName||"Pelanggan")+" • "+(o.phone||"-");
@@ -406,7 +434,6 @@ function renderOrders(){
   total.textContent="Total: "+money(o.total);
 
   const status=document.createElement("p");
-  status.innerHTML="";
   const badge=document.createElement("span");
   badge.className="badge";
   badge.textContent=o.status||"Menunggu Konfirmasi";
@@ -431,6 +458,35 @@ function renderOrders(){
   }else{
    gps.textContent="Lokasi GPS belum tersedia pada pesanan ini.";
   }
+
+  const trackingWrap=document.createElement("div");
+  trackingWrap.className="order-field";
+  const trackingLabel=document.createElement("label");
+  trackingLabel.textContent="Nomor resi / nomor pelacakan";
+  const trackingInput=document.createElement("input");
+  trackingInput.type="text";
+  trackingInput.placeholder="Masukkan nomor resi";
+  trackingInput.value=o.trackingNumber||"";
+  const saveTracking=document.createElement("button");
+  saveTracking.className="light";
+  saveTracking.textContent="Simpan Nomor Resi";
+  saveTracking.onclick=async()=>{
+   const trackingNumber=trackingInput.value.trim();
+   saveTracking.disabled=true;
+   try{
+    await updateDoc(doc(db,"orders",o.id),{
+     trackingNumber:trackingNumber,
+     trackingUpdatedAt:serverTimestamp(),
+     updatedAt:serverTimestamp()
+    });
+    alert(trackingNumber?"Nomor resi berhasil disimpan.":"Nomor resi berhasil dikosongkan.");
+   }catch(e){
+    alert("Gagal menyimpan nomor resi: "+e.message);
+   }finally{
+    saveTracking.disabled=false;
+   }
+  };
+  trackingWrap.append(trackingLabel,trackingInput,saveTracking);
 
   const courierLabel=document.createElement("label");
   courierLabel.textContent="Tugaskan kurir";
@@ -490,7 +546,7 @@ function renderOrders(){
   actions.className="actions";
   actions.append(assign,updateStatus);
 
-  box.append(title,customer,address,total,status,gps,courierLabel,select,statusLabel,statusSelect,actions);
+  box.append(title,customer,address,total,status,gps,trackingWrap,courierLabel,select,statusLabel,statusSelect,actions);
   $("orderList").append(box);
  });
 }
