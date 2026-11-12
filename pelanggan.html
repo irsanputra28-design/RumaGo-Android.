@@ -210,8 +210,18 @@ function showPaymentInfo(){
   box.textContent="Pembayaran dilakukan saat pesanan diterima.";
  }else if(method==="Transfer Bank"){
   box.innerHTML=`Transfer ke rekening berikut:<br><b>${esc(p.bankName)}</b><br>Nomor rekening: <b>${esc(p.bankAccount)}</b><br>Atas nama: <b>${esc(p.bankHolder)}</b><br><br>Pembayaran akan diverifikasi admin.`;
- }else if(method==="QRIS"){
-  box.innerHTML=`Scan QRIS berikut untuk membayar:<br><img src="${esc(p.qrisImageUrl)}" alt="QRIS RumaGo" style="display:block;max-width:220px;width:100%;margin:12px auto;border-radius:10px" onerror="this.style.display='none'"><br>Pembayaran akan diverifikasi admin.`;
+}else if(method==="QRIS"){
+  const qrisUrl=String(p.qrisImageUrl||"").trim();
+  box.innerHTML=`
+   <b>Scan QRIS berikut untuk membayar:</b>
+   <div style="text-align:center;margin:12px 0">
+    <img src="${esc(qrisUrl)}"
+     alt="QRIS RumaGo"
+     style="width:100%;max-width:280px;height:auto;display:block;margin:auto;border:1px solid #ddd;border-radius:10px">
+   </div>
+   <p class="muted">URL QRIS: ${esc(qrisUrl)}</p>
+   <p>Pembayaran akan diverifikasi admin.</p>
+  `;
  }
 }
 function setGpsStatus(message,type){const s=$("gpsStatus");if(s){s.className="gps-status"+(type?" "+type:"");s.textContent=message}}
