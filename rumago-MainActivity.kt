@@ -23,7 +23,7 @@ import java.util.Date
 import java.util.Locale
 import android.content.Intent
 import android.net.Uri
-
+import android.webkit.ValueCallback
 class MainActivity : Activity() {
 
     private lateinit var webView: WebView
@@ -33,9 +33,12 @@ class MainActivity : Activity() {
     private val db by lazy { FirebaseFirestore.getInstance() }
 
     private val LOCATION_REQUEST_CODE = 1001
-    private var pendingGeoCallback: GeolocationPermissions.Callback? = null
-    private var pendingGeoOrigin: String? = null
+private val FILE_CHOOSER_REQUEST_CODE = 1002
 
+private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
+
+private var pendingGeoCallback: GeolocationPermissions.Callback? = null
+private var pendingGeoOrigin: String? = null
     private fun hasLocationPermission(): Boolean {
         if (android.os.Build.VERSION.SDK_INT < 23) return true
 
