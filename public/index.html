@@ -649,15 +649,167 @@ assign.onclick=async()=>{
   updateStatus.className="light";
   updateStatus.textContent="Perbarui Status";
   updateStatus.onclick=async()=>{
-   try{
-    await updateDoc(doc(db,"orders",o.id),{
-     status:statusSelect.value,
+ try{
+  const orderRef=doc(db,"orders",o.id);
+  const nextStatus=statusSelect.value;
+
+  await runTransaction(db,async(transaction)=>{
+   const orderSnap=await transaction.get(orderRef);
+
+   if(!orderSnap.exists()){
+    throw new Error("Pesanan tidak ditemukan.");
+   }
+
+   const current=orderSnap.data();
+
+   if(current.stockManaged!==true){
+    transaction.update(orderRef,{
+     status:nextStatus,
      updatedAt:serverTimestamp()
     });
-    alert("Status pesanan diperbarui.");
-   }catch(e){alert("Gagal memperbarui: "+e.message);}
-  };
+    return;
+   }
 
+   if(current.status==="Dibatalkan" && nextStatus!=="Dibatalkan"){
+    throw new Error("Pesanan yang sudah dibatalkan tidak dapat dibuka kembali.");
+   }
+
+   if(nextStatus==="Diproses" && current.stockDeducted!==true){
+
+    const items=Array.isArray(current.items)?current.items:[];
+
+    if(!items.length){
+     throw new Error("Data produk pesanan kosong.");
+    }
+
+    const quantities={};
+    const names={};
+
+    items.forEach(item=>{
+     const id=String(item.id||"");
+     const qty=Number(item.qty);
+
+     if(!id || !Number.isInteger(qty) || qty<=0){
+      throw new Error("Data produk atau jumlah pesanan tidak valid.");
+     }
+
+     quantities[id]=(quantities[id]||0)+qty;
+     names[id]=item.name||id;
+    });
+
+    const ids=Object.keys(quantities);
+    const refs=ids.map(id=>doc(db,"products",id));
+    const snaps=await Promise.all(
+     refs.map(ref=>transaction.get(ref))
+    );
+
+    const updates=[];
+
+    snaps.forEach((snap,index)=>{
+     const id=ids[index];
+
+     if(!snap.exists()){
+      throw new Error("Produk tidak ditemukan: "+names[id]);
+     }
+
+     const stock=Number(snap.data().stock);
+
+     if(!Number.isFinite(stock) || stock<quantities[id]){
+      throw new Error("Stok tidak cukup untuk: "+names[id]);
+     }
+
+     updates.push({
+      ref:refs[index],
+      stock:stock-quantities[id]
+     });
+    });
+
+    updates.forEach(item=>{
+     transaction.update(item.ref,{
+      stock:item.stock,
+      updatedAt:serverTimestamp()
+     });
+    });
+
+    transaction.update(orderRef,{
+     status:nextStatus,
+     stockDeducted:true,
+     stockDeductedAt:serverTimestamp(),
+     updatedAt:serverTimestamp()
+    });
+
+    return;
+   }
+
+   if(nextStatus==="Dibatalkan" && current.stockDeducted===true && current.stockRestored!==true){
+
+    const items=Array.isArray(current.items)?current.items:[];
+
+    const quantities={};
+    items.forEach(item=>{
+     const id=String(item.id||"");
+     const qty=Number(item.qty);
+
+     if(!id || !Number.isInteger(qty) || qty<=0){
+      throw new Error("Data produk atau jumlah pesanan tidak valid.");
+     }
+
+     quantities[id]=(quantities[id]||0)+qty;
+    });
+
+    const ids=Object.keys(quantities);
+    const refs=ids.map(id=>doc(db,"products",id));
+    const snaps=await Promise.all(
+     refs.map(ref=>transaction.get(ref))
+    );
+
+    const updates=[];
+
+    snaps.forEach((snap,index)=>{
+     if(!snap.exists()){
+      throw new Error("Produk tidak ditemukan saat pengembalian stok.");
+     }
+
+     const stock=Number(snap.data().stock);
+
+     if(!Number.isFinite(stock)){
+      throw new Error("Data stok produk tidak valid.");
+     }
+
+     updates.push({
+      ref:refs[index],
+      stock:stock+quantities[ids[index]]
+     });
+    });
+
+    updates.forEach(item=>{
+     transaction.update(item.ref,{
+      stock:item.stock,
+      updatedAt:serverTimestamp()
+     });
+    });
+
+    transaction.update(orderRef,{
+     status:nextStatus,
+     stockRestored:true,
+     stockRestoredAt:serverTimestamp(),
+     updatedAt:serverTimestamp()
+    });
+
+    return;
+   }
+
+   transaction.update(orderRef,{
+    status:nextStatus,
+    updatedAt:serverTimestamp()
+   });
+  });
+  
+  alert("Status pesanan berhasil diperbarui.");
+ }catch(e){
+  alert("Gagal memperbarui: "+e.message);
+ }
+};
   const actions=document.createElement("div");
   actions.className="actions";
   actions.append(assign,updateStatus);
