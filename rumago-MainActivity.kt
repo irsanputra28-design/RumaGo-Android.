@@ -551,4 +551,4 @@ class MainActivity : Activity() {
                 .addOnFailureListener { e ->
                     sendCallback(
                         "onRumaGoOrdersResult",
-                        JSONObjec
+                        JSONObject
