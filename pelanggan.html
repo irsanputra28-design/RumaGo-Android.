@@ -1015,26 +1015,120 @@ async function startDelivery(orderId){
  }
 }
 
+
 async function markDelivered(orderId){
  if(!auth.currentUser||!isCourierUser()){
   toast("Silakan login menggunakan akun kurir.");
   return;
  }
 
- if(!confirm("Pastikan pesanan sudah diterima pelanggan. Tandai sebagai terkirim?"))return;
+ const recipientName=prompt("Masukkan nama penerima:");
+ if(recipientName===null)return;
+
+ const name=recipientName.trim();
+ if(name.length<2||name.length>80){
+  toast("Nama penerima harus 2 sampai 80 karakter.");
+  return;
+ }
 
  try{
-  await updateDoc(doc(db,"orders",orderId),{
+  const input=document.createElement("input");
+  input.type="file";
+  input.accept="image/*";
+  input.setAttribute("capture","environment");
+
+  const file=await new Promise((resolve,reject)=>{
+   input.onchange=()=>{
+    if(input.files&&input.files[0]){
+     resolve(input.files[0]);
+    }else{
+     reject(new Error("Foto belum dipilih."));
+    }
+   };
+   input.click();
+  });
+
+  if(!file.type.startsWith("image/")){
+   throw new Error("File harus berupa foto.");
+  }
+
+  const photoData=await new Promise((resolve,reject)=>{
+   const image=new Image();
+   const url=URL.createObjectURL(file);
+
+   image.onload=()=>{
+    try{
+     const maxWidth=900;
+     const scale=Math.min(1,maxWidth/image.width);
+     const canvas=document.createElement("canvas");
+
+     canvas.width=Math.round(image.width*scale);
+     canvas.height=Math.round(image.height*scale);
+
+     const ctx=canvas.getContext("2d");
+     ctx.drawImage(image,0,0,canvas.width,canvas.height);
+
+     let quality=0.65;
+     let dataUrl=canvas.toDataURL("image/jpeg",quality);
+
+     while(dataUrl.split(",")[1].length>650000&&quality>0.25){
+      quality-=0.10;
+      dataUrl=canvas.toDataURL("image/jpeg",quality);
+     }
+
+     URL.revokeObjectURL(url);
+
+     const base64=dataUrl.split(",")[1];
+
+     if(base64.length>650000){
+      reject(new Error("Foto terlalu besar. Silakan pilih foto lain."));
+      return;
+     }
+
+     resolve(base64);
+    }catch(e){
+     URL.revokeObjectURL(url);
+     reject(e);
+    }
+   };
+
+   image.onerror=()=>{
+    URL.revokeObjectURL(url);
+    reject(new Error("Foto tidak dapat dibaca."));
+   };
+
+   image.src=url;
+  });
+
+  if(!confirm("Simpan bukti pengiriman dan tandai pesanan sebagai Terkirim?"))return;
+
+  const orderRef=doc(db,"orders",orderId);
+  const proofRef=doc(db,"orders",orderId,"deliveryProofs","latest");
+
+  const batch=writeBatch(db);
+
+  batch.set(proofRef,{
+   recipientName:name,
+   imageBase64:photoData,
+   mimeType:"image/jpeg",
+   courierId:auth.currentUser.uid,
+   deliveredAt:serverTimestamp()
+  });
+
+  batch.update(orderRef,{
    status:"Terkirim",
    updatedAt:serverTimestamp()
   });
 
-  toast("Pesanan berhasil ditandai terkirim.");
+  await batch.commit();
+
+  toast("Bukti pengiriman berhasil disimpan.");
  }catch(e){
   console.error(e);
-  toast("Gagal memperbarui status: "+e.message);
+  toast("Gagal menyimpan bukti: "+e.message);
  }
 }
+
 
 /* AKUN DAN LOGIN */
 
