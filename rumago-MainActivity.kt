@@ -544,11 +544,17 @@ class MainActivity : Activity() {
                             .put("orders", result)
                     )
                 }
-                .addOnFailureListener { e ->
+                                .addOnFailureListener { e ->
                     sendCallback(
                         "onRumaGoOrdersResult",
                         JSONObject()
                             .put("success", false)
                             .put(
                                 "message",
-                       
+                                e.message ?: "Gagal mengambil pesanan."
+                            )
+                    )
+                }
+        }
+    }
+}
