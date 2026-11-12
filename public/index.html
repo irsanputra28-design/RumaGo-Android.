@@ -436,14 +436,25 @@ function watchOrders(){
  },e=>{$("orderList").textContent="Gagal membaca pesanan: "+e.message;});
 }
 
+
 function watchUsers(){
  stopUsers=onSnapshot(collection(db,"users"),snap=>{
+  console.log("Total users:",snap.size);
+
   couriers=snap.docs
    .map(d=>({id:d.id,...d.data()}))
-   .filter(u=>["kurir","courier"].includes(String(u.role||"").toLowerCase()));
+   .filter(u=>["kurir","courier"].includes(
+    String(u.role||"").trim().toLowerCase()
+   ));
+
+  console.log("Daftar kurir:",couriers);
   renderOrders();
- },e=>console.log("Gagal membaca daftar kurir",e));
+ },e=>{
+  console.error("Gagal membaca daftar kurir:",e);
+  alert("Gagal membaca data kurir: "+e.message);
+ });
 }
+
 
 function renderOrders(){
  $("totalOrders").textContent=orders.length;
