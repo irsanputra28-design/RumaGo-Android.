@@ -603,18 +603,36 @@ if((o.paymentMethod||"").toUpperCase()==="COD"){
   const assign=document.createElement("button");
   assign.className="primary";
   assign.textContent="Simpan Kurir";
-  assign.onclick=async()=>{
-   if(!select.value){alert("Pilih kurir terlebih dahulu.");return;}
-   try{
-    await updateDoc(doc(db,"orders",o.id),{
-     courierId:select.value,
-     courierName:select.options[select.selectedIndex].text,
-     status:"Ditugaskan",
-     updatedAt:serverTimestamp()
-    });
-    alert("Kurir berhasil ditugaskan.");
-   }catch(e){alert("Gagal menugaskan kurir: "+e.message);}
-  };
+  
+assign.onclick=async()=>{
+ if(!select.value){
+  alert("Pilih kurir terlebih dahulu.");
+  return;
+ }
+
+ const selectedCourier=couriers.find(
+  c=>c.id===select.value
+ );
+
+ if(!selectedCourier){
+  alert("Data kurir tidak ditemukan.");
+  return;
+ }
+
+ try{
+  await updateDoc(doc(db,"orders",o.id),{
+   courierId:selectedCourier.id,
+   courierName:selectedCourier.name||selectedCourier.email||"Kurir RumaGo",
+   courierPhone:selectedCourier.phone||"",
+   status:"Ditugaskan",
+   updatedAt:serverTimestamp()
+  });
+
+  alert("Kurir berhasil ditugaskan.");
+ }catch(e){
+  alert("Gagal menugaskan kurir: "+e.message);
+ }
+};
 
   const statusLabel=document.createElement("label");
   statusLabel.textContent="Status pesanan";
