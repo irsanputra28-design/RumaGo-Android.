@@ -726,6 +726,7 @@ function loadOrders(){
  );
 }
 
+
 function renderOrders(list){
  const c=$("ordersContent");
  orders=Array.isArray(list)?list:[];
@@ -752,6 +753,36 @@ function renderOrders(list){
 
   const resi=o.trackingNumber||"Belum tersedia";
 
+  const courierName=o.courierName||"Belum ditugaskan";
+
+  const phoneRaw=String(o.courierPhone||"").replace(/\D/g,"");
+
+  const courierPhone=phoneRaw.startsWith("0")
+   ?"62"+phoneRaw.slice(1)
+   :phoneRaw.startsWith("8")
+    ?"62"+phoneRaw
+    :phoneRaw;
+
+  const whatsappMessage=encodeURIComponent(
+   "Halo Kurir RumaGo, saya ingin menanyakan pesanan "+nomor+"."
+  );
+
+  const courierContact=courierPhone
+   ?`
+    <div class="notice">
+     <b>🚚 Informasi Kurir</b>
+     <p>Nama: <b>${esc(courierName)}</b></p>
+     <p>Nomor HP: <b>${esc(o.courierPhone)}</b></p>
+     <a class="btn btn-block"
+      href="https://wa.me/${courierPhone}?text=${whatsappMessage}">
+      Hubungi Kurir via WhatsApp
+     </a>
+    </div>
+   `
+   :o.courierId
+    ?`<div class="notice">🚚 Kurir: ${esc(courierName)}<br>Nomor WhatsApp belum tersedia.</div>`
+    :"";
+
   return `
    <div class="card">
     <div style="display:flex;justify-content:space-between;gap:8px">
@@ -761,6 +792,7 @@ function renderOrders(list){
     <p class="muted">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleString("id-ID"):""}</p>
     <div class="muted">Nomor Resi: <b>${esc(resi)}</b></div>
     <div class="muted">Pembayaran: ${esc(o.paymentStatus||"Belum ditentukan")}</div>
+    ${courierContact}
     <hr>
     ${(o.items||[]).map(i=>`
      <div class="cart-row">
@@ -776,6 +808,7 @@ function renderOrders(list){
    </div>`;
  }).join("");
 }
+
 
 /* FITUR KHUSUS KURIR */
 
