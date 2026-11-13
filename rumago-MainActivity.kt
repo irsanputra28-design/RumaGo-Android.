@@ -199,7 +199,7 @@ webView.webViewClient = object : WebViewClient() {
             addCategory(Intent.CATEGORY_OPENABLE)
         }
 
-        val chooser = Intent.createChooser(
+                val chooser = Intent.createChooser(
             galleryIntent,
             "Pilih Foto Bukti POD"
         ).apply {
@@ -207,12 +207,12 @@ webView.webViewClient = object : WebViewClient() {
                 Intent.EXTRA_INITIAL_INTENTS,
                 arrayOf(cameraIntent)
             )
+        }
 
         startActivityForResult(
             chooser,
             FILE_CHOOSER_REQUEST_CODE
         )
-
         true
 
     } catch (e: Exception) {
