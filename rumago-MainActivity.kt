@@ -1,4 +1,3 @@
-
 package id.rumago.app
 
 import android.app.Activity
@@ -12,11 +11,9 @@ import android.webkit.WebResourceResponse
 import android.webkit.GeolocationPermissions
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.content.Intent
-import android.net.Uri
-import android.webkit.ValueCallback
 import androidx.webkit.WebViewAssetLoader
 import androidx.core.content.FileProvider
+import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 import com.google.firebase.auth.FirebaseAuth
@@ -25,8 +22,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.io.File
-
+import android.content.Intent
+import android.net.Uri
+import android.webkit.ValueCallback
 class MainActivity : Activity() {
 
     private lateinit var webView: WebView
@@ -36,23 +34,19 @@ class MainActivity : Activity() {
     private val db by lazy { FirebaseFirestore.getInstance() }
 
     private val LOCATION_REQUEST_CODE = 1001
-    private val FILE_CHOOSER_REQUEST_CODE = 1002
+private val FILE_CHOOSER_REQUEST_CODE = 1002
 
-    private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
-    private var pendingCameraUri: Uri? = null
-
-    private var pendingGeoCallback: GeolocationPermissions.Callback? = null
-    private var pendingGeoOrigin: String? = null
-
+private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
+private var pendingCameraUri: Uri? = null
+private var pendingGeoCallback: GeolocationPermissions.Callback? = null
+private var pendingGeoOrigin: String? = null
     private fun hasLocationPermission(): Boolean {
         if (android.os.Build.VERSION.SDK_INT < 23) return true
 
-        return checkSelfPermission(
-            android.Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-            checkSelfPermission(
-                android.Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
+        return checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,187 +71,164 @@ class MainActivity : Activity() {
             )
             .build()
 
-        webView.webViewClient = object : WebViewClient() {
+webView.webViewClient = object : WebViewClient() {
 
-            override fun shouldOverrideUrlLoading(
-                view: WebView,
-                request: WebResourceRequest
-            ): Boolean {
+    override fun shouldOverrideUrlLoading(
+        view: WebView,
+        request: WebResourceRequest
+    ): Boolean {
 
-                val url = request.url.toString()
+        val url = request.url.toString()
 
-                if (
-                    url.startsWith("https://www.google.com/maps") ||
-                    url.startsWith("https://maps.google.com") ||
-                    url.startsWith("geo:") ||
-                    url.startsWith("https://wa.me/") ||
-                    url.startsWith("https://api.whatsapp.com/") ||
-                    url.startsWith("https://www.whatsapp.com/") ||
-                    url.startsWith("whatsapp://")
-                ) {
-                    return try {
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse(url)
-                        )
+        if (
+            url.startsWith("https://www.google.com/maps") ||
+            url.startsWith("https://maps.google.com") ||
+            url.startsWith("geo:") ||
+            url.startsWith("https://wa.me/") ||
+            url.startsWith("https://api.whatsapp.com/") ||
+            url.startsWith("https://www.whatsapp.com/") ||
+            url.startsWith("whatsapp://")
+        ) {
+            return try {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(url)
+                )
 
-                        startActivity(intent)
-                        true
+                startActivity(intent)
+                true
 
-                    } catch (e: Exception) {
-                        android.widget.Toast.makeText(
-                            this@MainActivity,
-                            "Tidak dapat membuka aplikasi tujuan.",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Tidak dapat membuka aplikasi tujuan.",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
 
-                        true
-                    }
-                }
-
-                return false
-            }
-
-            override fun shouldInterceptRequest(
-                view: WebView,
-                request: WebResourceRequest
-            ): WebResourceResponse? {
-                return assetLoader.shouldInterceptRequest(request.url)
+                true
             }
         }
+
+        return false
+    }
+
+    override fun shouldInterceptRequest(
+        view: WebView,
+        request: WebResourceRequest
+    ): WebResourceResponse? {
+        return assetLoader.shouldInterceptRequest(request.url)
+    }
+}
 
         webView.webChromeClient = object : WebChromeClient() {
 
-            override fun onGeolocationPermissionsShowPrompt(
-                origin: String,
-                callback: GeolocationPermissions.Callback
-            ) {
-                if (hasLocationPermission()) {
-                    callback.invoke(origin, true, false)
-                } else {
-                    pendingGeoOrigin = origin
-                    pendingGeoCallback = callback
+    override fun onGeolocationPermissionsShowPrompt(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
+        if (hasLocationPermission()) {
+            callback.invoke(origin, true, false)
+        } else {
+            pendingGeoOrigin = origin
+            pendingGeoCallback = callback
 
-                    if (android.os.Build.VERSION.SDK_INT >= 23) {
-                        requestPermissions(
-                            arrayOf(
-                                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                android.Manifest.permission.ACCESS_COARSE_LOCATION
-                            ),
-                            LOCATION_REQUEST_CODE
-                        )
-                    } else {
-                        callback.invoke(origin, true, false)
-                    }
-                }
-            }
-
-            // PEMILIHAN FOTO POD: KAMERA ATAU GALERI
-            override fun onShowFileChooser(
-                webView: WebView?,
-                filePathCallback: ValueCallback<Array<Uri>>,
-                fileChooserParams: FileChooserParams
-            ): Boolean {
-
-                pendingFileCallback?.onReceiveValue(null)
-                pendingFileCallback = filePathCallback
-                pendingCameraUri = null
-
-                return try {
-
-                    // Folder sementara foto POD
-                    val podFolder = File(
-                        this@MainActivity.cacheDir,
-                        "pod"
-                    )
-
-                    if (!podFolder.exists()) {
-                        podFolder.mkdirs()
-                    }
-
-                    // File foto dari kamera
-                    val photoFile = File.createTempFile(
-                        "POD_",
-                        ".jpg",
-                        podFolder
-                    )
-
-                    // URI kamera melalui FileProvider
-                    pendingCameraUri = FileProvider.getUriForFile(
-                        this@MainActivity,
-                        "${this@MainActivity.packageName}.fileprovider",
-                        photoFile
-                    )
-
-                    // Intent kamera
-                    val cameraIntent = Intent(
-                        android.provider.MediaStore.ACTION_IMAGE_CAPTURE
-                    ).apply {
-                        putExtra(
-                            android.provider.MediaStore.EXTRA_OUTPUT,
-                            pendingCameraUri
-                        )
-
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                    }
-
-                    // Intent galeri
-                    val galleryIntent = Intent(
-                        Intent.ACTION_GET_CONTENT
-                    ).apply {
-                        type = "image/*"
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                    }
-
-                    // Gabungkan pilihan kamera dan galeri
-                    val chooser = Intent.createChooser(
-                        galleryIntent,
-                        "Pilih Foto Bukti POD"
-                    ).apply {
-                        putExtra(
-                            Intent.EXTRA_INITIAL_INTENTS,
-                            arrayOf(cameraIntent)
-                        )
-                    }
-
-                    this@MainActivity.startActivityForResult(
-                        chooser,
-                        FILE_CHOOSER_REQUEST_CODE
-                    )
-
-                    true
-
-                } catch (e: Exception) {
-
-                    pendingFileCallback?.onReceiveValue(null)
-                    pendingFileCallback = null
-                    pendingCameraUri = null
-
-                    android.widget.Toast.makeText(
-                        this@MainActivity,
-                        "Gagal membuka kamera atau galeri: ${e.message}",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-
-                    true
-                }
+            if (android.os.Build.VERSION.SDK_INT >= 23) {
+                requestPermissions(
+                    arrayOf(
+                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    LOCATION_REQUEST_CODE
+                )
+            } else {
+                callback.invoke(origin, true, false)
             }
         }
-
-        // Hubungkan JavaScript dengan Android
-        webView.addJavascriptInterface(
-            RumaGoBridge(),
-            "Android"
-        )
-
-        // Halaman pelanggan dan kurir
-        webView.loadUrl(
-            "https://irsanputra28-design.github.io/RumaGo-Android./pelanggan.html"
-        )
     }
 
-    // HASIL FOTO DARI KAMERA ATAU GALERI
+    
+    override fun onShowFileChooser(
+        webView: WebView?,
+        filePathCallback: ValueCallback<Array<Uri>>,
+        fileChooserParams: FileChooserParams
+    ): Boolean {
+        pendingFileCallback?.onReceiveValue(null)
+        pendingFileCallback = filePathCallback
+        pendingCameraUri = null
+
+        return try {
+            val podFolder = File(this@MainActivity.cacheDir, "pod")
+            if (!podFolder.exists()) {
+                podFolder.mkdirs()
+            }
+
+            val photoFile = File.createTempFile(
+                "POD_",
+                ".jpg",
+                podFolder
+            )
+
+            pendingCameraUri = FileProvider.getUriForFile(
+                this@MainActivity,
+                "${this@MainActivity.packageName}.fileprovider",
+                photoFile
+            )
+
+            val cameraIntent = Intent(
+                android.provider.MediaStore.ACTION_IMAGE_CAPTURE
+            ).apply {
+                putExtra(
+                    android.provider.MediaStore.EXTRA_OUTPUT,
+                    pendingCameraUri
+                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                clipData = android.content.ClipData.newUri(
+                    contentResolver,
+                    "POD",
+                    pendingCameraUri
+                )
+            }
+
+            val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+            }
+
+            val chooser = Intent.createChooser(
+                galleryIntent,
+                "Pilih Foto Bukti POD"
+            ).apply {
+                putExtra(
+                    Intent.EXTRA_INITIAL_INTENTS,
+                    arrayOf(cameraIntent)
+                )
+            }
+
+            startActivityForResult(
+                chooser,
+                FILE_CHOOSER_REQUEST_CODE
+            )
+
+            true
+
+        } catch (e: Exception) {
+            pendingFileCallback?.onReceiveValue(null)
+            pendingFileCallback = null
+            pendingCameraUri = null
+
+            android.widget.Toast.makeText(
+                this@MainActivity,
+                "Gagal membuka kamera atau galeri: ${e.message}",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+
+            false
+        }
+    }
+
+
+    
     override fun onActivityResult(
         requestCode: Int,
         resultCode: Int,
@@ -266,7 +237,6 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
-
             val selectedUri: Uri? = if (resultCode == RESULT_OK) {
                 data?.data ?: pendingCameraUri
             } else {
@@ -278,13 +248,11 @@ class MainActivity : Activity() {
             }
 
             pendingFileCallback?.onReceiveValue(results)
-
             pendingFileCallback = null
             pendingCameraUri = null
         }
     }
 
-    // HASIL IZIN LOKASI
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -297,7 +265,6 @@ class MainActivity : Activity() {
         )
 
         if (requestCode == LOCATION_REQUEST_CODE) {
-
             val granted = grantResults.any {
                 it == PackageManager.PERMISSION_GRANTED
             }
@@ -313,7 +280,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // KIRIM HASIL KE JAVASCRIPT
     private fun sendCallback(
         functionName: String,
         payload: JSONObject
@@ -381,7 +347,6 @@ class MainActivity : Activity() {
                     .document(user.uid)
                     .set(profile)
                     .addOnSuccessListener {
-
                         val safeProfile = mapOf(
                             "name" to name.trim(),
                             "phone" to phone.trim(),
@@ -421,15 +386,11 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun register(
-            email: String,
-            password: String
-        ) {
+        fun register(email: String, password: String) {
             auth.createUserWithEmailAndPassword(
                 email.trim(),
                 password
             ).addOnSuccessListener { result ->
-
                 sendCallback(
                     "onRumaGoAuthResult",
                     JSONObject()
@@ -454,10 +415,7 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun login(
-            email: String,
-            password: String
-        ) {
+        fun login(email: String, password: String) {
             auth.signInWithEmailAndPassword(
                 email.trim(),
                 password
@@ -479,7 +437,6 @@ class MainActivity : Activity() {
                     .document(user.uid)
                     .get()
                     .addOnSuccessListener { doc ->
-
                         val data = doc.data ?: emptyMap<String, Any>()
 
                         sendCallback(
@@ -527,7 +484,6 @@ class MainActivity : Activity() {
                 .document(user.uid)
                 .get()
                 .addOnSuccessListener { doc ->
-
                     val data = doc.data ?: emptyMap<String, Any>()
 
                     sendCallback(
@@ -596,4 +552,155 @@ class MainActivity : Activity() {
                         "onRumaGoOrderResult",
                         JSONObject()
                             .put("success", false)
-                            .put("message", "Keran
+                            .put("message", "Keranjang masih kosong.")
+                    )
+                    return
+                }
+
+                val orderNumber = "RG" + System.currentTimeMillis()
+
+                val order = hashMapOf<String, Any>(
+                    "orderNumber" to orderNumber,
+                    "customerId" to user.uid,
+                    "customerEmail" to (user.email ?: ""),
+                    "customerName" to input.optString("customerName"),
+                    "phone" to input.optString("phone"),
+                    "address" to input.optString("address"),
+                    "city" to input.optString("city"),
+                    "delivery" to input.optString("delivery"),
+                    "note" to input.optString("note"),
+                    "items" to items,
+                    "total" to input.optDouble("total"),
+                    "status" to "Menunggu Konfirmasi",
+                    "createdAt" to FieldValue.serverTimestamp()
+                )
+
+                if (input.has("latitude") && !input.isNull("latitude")) {
+                    val latitude = input.optDouble("latitude")
+
+                    if (!latitude.isNaN() && !latitude.isInfinite()) {
+                        order["latitude"] = latitude
+                    }
+                }
+
+                if (input.has("longitude") && !input.isNull("longitude")) {
+                    val longitude = input.optDouble("longitude")
+
+                    if (!longitude.isNaN() && !longitude.isInfinite()) {
+                        order["longitude"] = longitude
+                    }
+                }
+
+                db.collection("orders")
+                    .add(order)
+                    .addOnSuccessListener {
+                        sendCallback(
+                            "onRumaGoOrderResult",
+                            JSONObject()
+                                .put("success", true)
+                                .put("orderNumber", orderNumber)
+                        )
+                    }
+                    .addOnFailureListener { e ->
+                        sendCallback(
+                            "onRumaGoOrderResult",
+                            JSONObject()
+                                .put("success", false)
+                                .put(
+                                    "message",
+                                    e.localizedMessage ?: "Gagal menyimpan pesanan."
+                                )
+                        )
+                    }
+
+            } catch (e: Exception) {
+                sendCallback(
+                    "onRumaGoOrderResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", e.localizedMessage ?: "Data pesanan tidak valid.")
+                )
+            }
+        }
+
+        @JavascriptInterface
+        fun getMyOrders() {
+            val user = auth.currentUser
+
+            if (user == null) {
+                sendCallback(
+                    "onRumaGoOrdersResult",
+                    JSONObject()
+                        .put("success", false)
+                        .put("message", "Silakan login.")
+                )
+                return
+            }
+
+            db.collection("orders")
+                .whereEqualTo("customerId", user.uid)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val result = JSONArray()
+
+                    for (doc in snapshot.documents) {
+                        val data = doc.data ?: continue
+                        val created = data["createdAt"]
+
+                        val dateText = when (created) {
+                            is com.google.firebase.Timestamp ->
+                                SimpleDateFormat(
+                                    "dd MMM yyyy, HH:mm",
+                                    Locale("id", "ID")
+                                ).format(created.toDate())
+
+                            is Date ->
+                                SimpleDateFormat(
+                                    "dd MMM yyyy, HH:mm",
+                                    Locale("id", "ID")
+                                ).format(created)
+
+                            else -> ""
+                        }
+
+                        val obj = JSONObject()
+                        obj.put("id", doc.id)
+                        obj.put("orderNumber", data["orderNumber"] ?: doc.id)
+                        obj.put("status", data["status"] ?: "Diproses")
+                        obj.put("createdAt", dateText)
+                        obj.put("customerName", data["customerName"] ?: "")
+                        obj.put("phone", data["phone"] ?: "")
+                        obj.put("address", data["address"] ?: "")
+                        obj.put("city", data["city"] ?: "")
+                        obj.put("delivery", data["delivery"] ?: "")
+                        obj.put("total", data["total"] ?: 0)
+                        obj.put("latitude", data["latitude"] ?: JSONObject.NULL)
+                        obj.put("longitude", data["longitude"] ?: JSONObject.NULL)
+
+                        val items = data["items"] as? Collection<*> ?: emptyList<Any>()
+                        obj.put("items", JSONArray(items))
+
+                        result.put(obj)
+                    }
+
+                    sendCallback(
+                        "onRumaGoOrdersResult",
+                        JSONObject()
+                            .put("success", true)
+                            .put("orders", result)
+                    )
+                }
+                                .addOnFailureListener { e ->
+                    sendCallback(
+                        "onRumaGoOrdersResult",
+                        JSONObject()
+                            .put("success", false)
+                            .put(
+                                "message",
+                                e.message ?: "Gagal mengambil pesanan."
+                            )
+                    )
+                }
+        }
+    }
+}
