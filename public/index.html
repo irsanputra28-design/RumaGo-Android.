@@ -169,8 +169,27 @@ a{color:#0d6845;font-weight:bold}
 <input id="bankHolder" placeholder="Nama pemilik rekening">
 <hr>
 <label><input type="checkbox" id="qrisEnabled"> Aktifkan QRIS</label>
-<label>URL Gambar QRIS</label>
-<input id="qrisImageUrl" type="url" placeholder="URL gambar QRIS">
+<label>Upload Gambar QRIS</label>
+<input id="qrisFile" type="file"
+ accept="image/jpeg,image/png,image/webp">
+
+<div class="small-note">
+ Format JPG, PNG, atau WebP. Maksimal 5 MB.
+</div>
+
+<img id="qrisPreview" class="hidden"
+ alt="Preview QRIS"
+ style="width:180px;max-width:100%;height:auto;border-radius:10px;margin-bottom:12px">
+
+<button type="button" class="light full" id="uploadQris">
+ Upload QRIS ke Cloudinary
+</button>
+
+<div id="qrisUploadMessage" class="muted"></div>
+
+<label style="display:block;margin-top:12px">URL Gambar QRIS</label>
+<input id="qrisImageUrl" type="url"
+ placeholder="URL akan terisi otomatis setelah upload">
 <p class="muted">QRIS dapat diaktifkan setelah gambar tersedia.</p>
 <button type="button" class="primary full" id="savePayment">Simpan Pengaturan Pembayaran</button>
 <div id="paymentMessage" class="muted"></div>
