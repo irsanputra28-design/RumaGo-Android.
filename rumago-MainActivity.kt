@@ -1,3 +1,4 @@
+
 package id.rumago.app
 
 import android.app.Activity
@@ -12,8 +13,6 @@ import android.webkit.GeolocationPermissions
 import android.content.pm.PackageManager
 import android.graphics.Color
 import androidx.webkit.WebViewAssetLoader
-import androidx.core.content.FileProvider
-import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 import com.google.firebase.auth.FirebaseAuth
@@ -37,7 +36,7 @@ class MainActivity : Activity() {
 private val FILE_CHOOSER_REQUEST_CODE = 1002
 
 private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
-private var pendingCameraUri: Uri? = null
+
 private var pendingGeoCallback: GeolocationPermissions.Callback? = null
 private var pendingGeoOrigin: String? = null
     private fun hasLocationPermission(): Boolean {
@@ -146,7 +145,6 @@ webView.webViewClient = object : WebViewClient() {
         }
     }
 
-    
     override fun onShowFileChooser(
         webView: WebView?,
         filePathCallback: ValueCallback<Array<Uri>>,
@@ -154,105 +152,46 @@ webView.webViewClient = object : WebViewClient() {
     ): Boolean {
         pendingFileCallback?.onReceiveValue(null)
         pendingFileCallback = filePathCallback
-        pendingCameraUri = null
 
         return try {
-            val podFolder = File(this@MainActivity.cacheDir, "pod")
-            if (!podFolder.exists()) {
-                podFolder.mkdirs()
-            }
-
-            val photoFile = File.createTempFile(
-                "POD_",
-                ".jpg",
-                podFolder
-            )
-
-            pendingCameraUri = FileProvider.getUriForFile(
-                this@MainActivity,
-                "${this@MainActivity.packageName}.fileprovider",
-                photoFile
-            )
-
-            val cameraIntent = Intent(
-                android.provider.MediaStore.ACTION_IMAGE_CAPTURE
-            ).apply {
-                putExtra(
-                    android.provider.MediaStore.EXTRA_OUTPUT,
-                    pendingCameraUri
-                )
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                clipData = android.content.ClipData.newUri(
-                    contentResolver,
-                    "POD",
-                    pendingCameraUri
-                )
-            }
-
-            val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "image/*"
-                addCategory(Intent.CATEGORY_OPENABLE)
-            }
-
-            val chooser = Intent.createChooser(
-                galleryIntent,
-                "Pilih Foto Bukti POD"
-            ).apply {
-                putExtra(
-                    Intent.EXTRA_INITIAL_INTENTS,
-                    arrayOf(cameraIntent)
-                )
-            }
-
+            val intent = fileChooserParams.createIntent()
             startActivityForResult(
-                chooser,
+                intent,
                 FILE_CHOOSER_REQUEST_CODE
             )
-
             true
-
         } catch (e: Exception) {
             pendingFileCallback?.onReceiveValue(null)
             pendingFileCallback = null
-            pendingCameraUri = null
-
-            android.widget.Toast.makeText(
-                this@MainActivity,
-                "Gagal membuka kamera atau galeri: ${e.message}",
-                android.widget.Toast.LENGTH_LONG
-            ).show()
-
             false
         }
     }
-
-
-    
-    override fun onActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: Intent?
-    ) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
-            val selectedUri: Uri? = if (resultCode == RESULT_OK) {
-                data?.data ?: pendingCameraUri
-            } else {
-                null
-            }
-
-            val results = selectedUri?.let {
-                arrayOf(it)
-            }
-
-            pendingFileCallback?.onReceiveValue(results)
-            pendingFileCallback = null
-            pendingCameraUri = null
         }
+
+        webView.addJavascriptInterface(RumaGoBridge(), "Android")
+
+        webView.loadUrl(
+            "https://irsanputra28-design.github.io/RumaGo-Android./pelanggan.html"
+        )
     }
 
+    override fun onActivityResult(
+    requestCode: Int,
+    resultCode: Int,
+    data: Intent?
+) {
+    super.onActivityResult(requestCode, resultCode, data)
+
+    if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+        val results = WebChromeClient.FileChooserParams.parseResult(
+            resultCode,
+            data
+        )
+
+        pendingFileCallback?.onReceiveValue(results)
+        pendingFileCallback = null
+    }
+    }
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -649,7 +588,7 @@ webView.webViewClient = object : WebViewClient() {
 
                         val dateText = when (created) {
                             is com.google.firebase.Timestamp ->
-                                SimpleDateFormat(
+                                                                SimpleDateFormat(
                                     "dd MMM yyyy, HH:mm",
                                     Locale("id", "ID")
                                 ).format(created.toDate())
