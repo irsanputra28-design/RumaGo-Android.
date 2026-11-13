@@ -147,7 +147,8 @@ webView.webViewClient = object : WebViewClient() {
         }
     }
 
-    override fun onShowFileChooser(
+    
+override fun onShowFileChooser(
     webView: WebView?,
     filePathCallback: ValueCallback<Array<Uri>>,
     fileChooserParams: FileChooserParams
@@ -159,7 +160,6 @@ webView.webViewClient = object : WebViewClient() {
 
     return try {
         val podFolder = File(cacheDir, "pod")
-
         if (!podFolder.exists()) {
             podFolder.mkdirs()
         }
@@ -199,7 +199,7 @@ webView.webViewClient = object : WebViewClient() {
             addCategory(Intent.CATEGORY_OPENABLE)
         }
 
-                val chooser = Intent.createChooser(
+        val chooser = Intent.createChooser(
             galleryIntent,
             "Pilih Foto Bukti POD"
         ).apply {
@@ -213,6 +213,7 @@ webView.webViewClient = object : WebViewClient() {
             chooser,
             FILE_CHOOSER_REQUEST_CODE
         )
+
         true
 
     } catch (e: Exception) {
@@ -228,7 +229,12 @@ webView.webViewClient = object : WebViewClient() {
 
         false
     }
-    }
+}
+
+} // penutup WebChromeClient
+
+webView.addJavascriptInterface(RumaGoBridge(), "Android")
+
 
         webView.addJavascriptInterface(RumaGoBridge(), "Android")
 
