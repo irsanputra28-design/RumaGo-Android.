@@ -402,13 +402,30 @@ function editProduct(id){
 
 async function removeProduct(id){
  const p=products.find(x=>x.id===id);
- if(!p||!confirm("Hapus produk "+p.name+"?"))return;
+ if(!p||!confirm("Nonaktifkan produk "+p.name+"?"))return;
 
  try{
-  await deleteDoc(doc(db,"products",id));
-  message("Produk berhasil dihapus.",true);
+  const relatedOrders=orders.filter(o=>
+   o.stockDeducted===true&&
+   o.stockRestored!==true&&
+   o.status!=="Dibatalkan"&&
+   Array.isArray(o.items)&&
+   o.items.some(item=>String(item.id)===String(id))
+  );
+
+  if(relatedOrders.length>0){
+   message("Produk tidak dapat dihapus karena masih digunakan oleh pesanan yang stoknya belum dikembalikan.");
+   return;
+  }
+
+  await updateDoc(doc(db,"products",id),{
+   active:false,
+   updatedAt:serverTimestamp()
+  });
+
+  message("Produk berhasil dinonaktifkan.",true);
  }catch(e){
-  message("Gagal menghapus: "+e.message);
+  message("Gagal menonaktifkan produk: "+e.message);
  }
 }
 
