@@ -672,12 +672,24 @@ function renderOrders(){
   assign.textContent="Simpan Kurir";
 
   assign.onclick=async()=>{
+
+   if(o.status!=="Diproses"){
+    alert("Proses pesanan terlebih dahulu sampai status Diproses.");
+    return;
+   }
+
+   if(o.stockManaged===true&&o.stockDeducted!==true){
+    alert("Stok belum berhasil dikurangi. Periksa stok pesanan terlebih dahulu.");
+    return;
+   }
+
    if(!select.value){
     alert("Pilih kurir terlebih dahulu.");
     return;
    }
 
    const selectedCourier=couriers.find(c=>c.id===select.value);
+
    if(!selectedCourier){
     alert("Data kurir tidak ditemukan.");
     return;
@@ -702,7 +714,6 @@ function renderOrders(){
     assign.disabled=false;
    }
   };
- 
   // PEMBARUAN STATUS
   const statusLabel=document.createElement("label");
   statusLabel.textContent="Status pesanan";
@@ -735,17 +746,17 @@ function renderOrders(){
 
      const current=orderSnap.data();
 
-     if(current.stockManaged!==true){
-      transaction.update(orderRef,{
-       status:nextStatus,
-       updatedAt:serverTimestamp()
-      });
-      return;
-     }
+if(current.status==="Dibatalkan"&&nextStatus!=="Dibatalkan"){
+  throw new Error("Pesanan yang sudah dibatalkan tidak dapat dibuka kembali.");
+}
 
-     if(current.status==="Dibatalkan"&&nextStatus!=="Dibatalkan"){
-      throw new Error("Pesanan yang sudah dibatalkan tidak dapat dibuka kembali.");
-     }
+if(current.stockManaged!==true){
+  transaction.update(orderRef,{
+   status:nextStatus,
+   updatedAt:serverTimestamp()
+  });
+  return;
+}
 
      // PENGURANGAN STOK
      if(nextStatus==="Diproses"&&current.stockDeducted!==true){
