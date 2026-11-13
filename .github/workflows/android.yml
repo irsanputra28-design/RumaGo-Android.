@@ -67,7 +67,6 @@ jobs:
 
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
@@ -76,6 +75,16 @@ jobs:
                   android:label="RumaGo"
                   android:theme="@style/AppTheme"
                   android:usesCleartextTraffic="false">
+
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="id.rumago.app.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/file_paths" />
+                  </provider>
 
                   <activity
                       android:name=".MainActivity"
@@ -90,6 +99,15 @@ jobs:
 
               </application>
           </manifest>
+          EOF
+
+          mkdir -p RumaGo_Android_Project/app/src/main/res/xml
+
+          cat > RumaGo_Android_Project/app/src/main/res/xml/file_paths.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths xmlns:android="http://schemas.android.com/apk/res/android">
+              <cache-path name="pod_images" path="pod/" />
+          </paths>
           EOF
 
           echo "Manifest dan izin GPS berhasil disiapkan."
@@ -198,8 +216,7 @@ jobs:
               implementation 'com.google.firebase:firebase-firestore'
               implementation 'androidx.webkit:webkit:1.12.1'
               implementation 'androidx.core:core:1.15.0'
-           }
-    
+          }
           """)
 
           settings = Path("settings.gradle")
@@ -275,4 +292,3 @@ jobs:
             RumaGo_Android_Project/app/build/outputs/apk/debug/app-debug.apk
             RumaGo_Android_Project/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-          
