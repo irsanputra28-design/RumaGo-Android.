@@ -207,7 +207,6 @@ webView.webViewClient = object : WebViewClient() {
                 Intent.EXTRA_INITIAL_INTENTS,
                 arrayOf(cameraIntent)
             )
-        }
 
         startActivityForResult(
             chooser,
