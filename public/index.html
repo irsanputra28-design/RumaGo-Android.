@@ -494,6 +494,40 @@ function renderOrders(){
 
   const address=document.createElement("p");
   address.textContent="Alamat: "+(o.address||"-")+", "+(o.city||"");
+    // TANGGAL DAN JAM ORDER
+  const orderDate=document.createElement("p");
+  const createdDate=o.createdAt?.toDate
+   ?o.createdAt.toDate().toLocaleString("id-ID",{
+     dateStyle:"long",
+     timeStyle:"short",
+     timeZone:"Asia/Jakarta"
+    })
+   :"Waktu order tidak tersedia";
+  orderDate.textContent="Tanggal order: "+createdDate+" WIB";
+
+  // RINCIAN BARANG PESANAN
+  const itemsTitle=document.createElement("b");
+  itemsTitle.textContent="Rincian Barang Pesanan";
+
+  const itemsBox=document.createElement("div");
+  itemsBox.className="order-field";
+
+  if(Array.isArray(o.items)&&o.items.length){
+   o.items.forEach(item=>{
+    const row=document.createElement("p");
+    const qty=Number(item.qty)||0;
+    const price=Number(item.price)||0;
+
+    row.textContent=
+     (item.name||"Produk")+
+     " • "+qty+" x "+money(price)+
+     " = "+money(qty*price);
+
+    itemsBox.append(row);
+   });
+  }else{
+   itemsBox.textContent="Rincian barang tidak tersedia.";
+  }
 
   const total=document.createElement("p");
   total.textContent="Total: "+money(o.total);
