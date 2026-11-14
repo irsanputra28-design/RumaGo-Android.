@@ -84,6 +84,8 @@ a{color:#0d6845;font-weight:bold}
 <button class="active" data-tab="products">Produk</button>
 <button data-tab="orders">Pesanan & Kurir</button>
 <button data-tab="payment">Pengaturan Pembayaran</button>
+<button data-tab="suppliers">Pemasok</button>
+<button data-tab="procurement">Pengadaan</button>
 </div>
 
 <section id="productsPanel">
@@ -196,6 +198,78 @@ a{color:#0d6845;font-weight:bold}
 </div>
 </section>
 </section>
+ 
+<section id="suppliersPanel" class="hidden">
+ <div class="card">
+  <h3>Data Pemasok</h3>
+  <p class="muted">Kelola toko atau pemasok tempat RumaGo membeli barang.</p>
+
+  <label>Nama Pemasok</label>
+  <input id="supplierName" placeholder="Nama toko atau pemasok">
+
+  <label>Nomor WhatsApp</label>
+  <input id="supplierPhone" placeholder="Nomor WhatsApp">
+
+  <label>Alamat Pemasok</label>
+  <textarea id="supplierAddress" placeholder="Alamat lengkap"></textarea>
+
+  <label>Catatan</label>
+  <textarea id="supplierNotes" placeholder="Catatan tambahan (opsional)"></textarea>
+
+  <button type="button" class="primary full" id="saveSupplier">Simpan Pemasok</button>
+  <div id="supplierMessage" class="muted"></div>
+ </div>
+
+ <div class="card">
+  <h3>Daftar Pemasok</h3>
+  <div id="supplierList">Memuat pemasok...</div>
+ </div>
+</section>
+
+<section id="procurementPanel" class="hidden">
+ <div class="card">
+  <h3>Pengadaan Barang</h3>
+  <p class="muted">Catat pembelian barang dari pemasok untuk memenuhi pesanan pelanggan.</p>
+
+  <label>Pilih Pesanan Pelanggan</label>
+  <select id="procurementOrder">
+   <option value="">Pilih pesanan</option>
+  </select>
+
+  <div id="procurementOrderInfo" class="muted"></div>
+
+  <label>Pemasok (opsional)</label>
+  <select id="procurementSupplier">
+   <option value="">Belum memilih pemasok</option>
+  </select>
+
+  <label>Total Biaya Pembelian (Rp)</label>
+  <input id="purchaseCost" type="number" min="0" placeholder="Contoh: 150000">
+
+  <label>Status Pengadaan</label>
+  <select id="procurementStatus">
+   <option>Perlu Dicek</option>
+   <option>Menunggu Konfirmasi Pemasok</option>
+   <option>Siap Dibeli</option>
+   <option>Dalam Pembelian</option>
+   <option>Barang Diterima</option>
+   <option>Selesai</option>
+   <option>Barang Tidak Tersedia</option>
+  </select>
+
+  <label>Catatan Pengadaan</label>
+  <textarea id="procurementNotes" placeholder="Catatan pembelian (opsional)"></textarea>
+
+  <button type="button" class="primary full" id="saveProcurement">Simpan Pengadaan</button>
+  <div id="procurementMessage" class="muted"></div>
+ </div>
+
+ <div class="card">
+  <h3>Riwayat Pengadaan</h3>
+  <div id="procurementList">Memuat pengadaan...</div>
+ </div>
+</section>
+ 
 </main>
 
 <script type="module">
@@ -311,7 +385,11 @@ let editingId=null;
 let stopProducts=null;
 let stopOrders=null;
 let stopUsers=null;
-
+let suppliers=[];
+let procurements=[];
+let stopSuppliers=null;
+let stopProcurements=null;
+ 
 const money=n=>new Intl.NumberFormat("id-ID",{
  style:"currency",currency:"IDR",maximumFractionDigits:0
 }).format(Number(n||0));
@@ -357,10 +435,14 @@ onAuthStateChanged(auth,async user=>{
   $("login").classList.add("hidden");
   $("dashboard").classList.remove("hidden");
   $("adminEmail").textContent=user.email||"";
-  watchProducts();
-  watchOrders();
-  watchUsers();
-  loadPaymentSettings();
+  
+watchProducts();
+watchOrders();
+watchUsers();
+loadPaymentSettings();
+watchSuppliers();
+watchProcurements();
+
  }catch(e){
   await signOut(auth);
   $("loginMessage").textContent="Gagal memeriksa akun: "+e.message;
@@ -369,16 +451,22 @@ onAuthStateChanged(auth,async user=>{
 
 $("logoutBtn").onclick=()=>signOut(auth);
 
+
 document.querySelectorAll("[data-tab]").forEach(btn=>{
  btn.onclick=()=>{
   document.querySelectorAll("[data-tab]").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
+
   const tab=btn.dataset.tab;
+
   $("productsPanel").classList.toggle("hidden",tab!=="products");
   $("ordersPanel").classList.toggle("hidden",tab!=="orders");
   $("paymentPanel").classList.toggle("hidden",tab!=="payment");
+  $("suppliersPanel").classList.toggle("hidden",tab!=="suppliers");
+  $("procurementPanel").classList.toggle("hidden",tab!=="procurement");
  };
 });
+
 
 function watchProducts(){
  stopProducts=onSnapshot(collection(db,"products"),snap=>{
@@ -564,6 +652,7 @@ function watchOrders(){
  stopOrders=onSnapshot(collection(db,"orders"),snap=>{
   orders=snap.docs.map(d=>({id:d.id,...d.data()}));
   renderOrders();
+  updateProcurementOrderOptions();
  },e=>{
   $("orderList").textContent="Gagal membaca pesanan: "+e.message;
  });
@@ -583,6 +672,166 @@ function watchUsers(){
  });
  }
 
+
+function watchSuppliers(){
+ stopSuppliers=onSnapshot(
+  collection(db,"suppliers"),
+  snap=>{
+   suppliers=snap.docs.map(d=>({
+    id:d.id,
+    ...d.data()
+   }));
+
+   renderSuppliers();
+   updateProcurementSupplierOptions();
+  },
+  e=>{
+   $("supplierList").textContent=
+    "Gagal membaca pemasok: "+e.message;
+  }
+ );
+}
+
+function watchProcurements(){
+ stopProcurements=onSnapshot(
+  collection(db,"procurements"),
+  snap=>{
+   procurements=snap.docs.map(d=>({
+    id:d.id,
+    ...d.data()
+   }));
+
+   renderProcurements();
+  },
+  e=>{
+   $("procurementList").textContent=
+    "Gagal membaca pengadaan: "+e.message;
+  }
+ );
+}
+
+function updateProcurementSupplierOptions(){
+ const select=$("procurementSupplier");
+ const selected=select.value;
+
+ select.replaceChildren();
+
+ const empty=document.createElement("option");
+ empty.value="";
+ empty.textContent="Belum memilih pemasok";
+ select.append(empty);
+
+ suppliers
+  .filter(s=>s.active!==false)
+  .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||"")))
+  .forEach(s=>{
+   const option=document.createElement("option");
+   option.value=s.id;
+   option.textContent=s.name||"Pemasok";
+   select.append(option);
+  });
+
+ if([...select.options].some(o=>o.value===selected)){
+  select.value=selected;
+ }
+}
+
+function renderSuppliers(){
+ const list=$("supplierList");
+ list.replaceChildren();
+
+ if(!suppliers.length){
+  list.textContent="Belum ada pemasok terdaftar.";
+  return;
+ }
+
+ suppliers.forEach(s=>{
+  const box=document.createElement("div");
+  box.className="order";
+
+  const name=document.createElement("b");
+  name.textContent=s.name||"Tanpa nama";
+
+  const phone=document.createElement("p");
+  phone.textContent="WhatsApp: "+(s.phone||"-");
+
+  const address=document.createElement("p");
+  address.textContent="Alamat: "+(s.address||"-");
+
+  const status=document.createElement("span");
+  status.className="badge";
+  status.textContent=s.active===false?"Nonaktif":"Aktif";
+
+  box.append(name,phone,address,status);
+
+  if(s.notes){
+   const notes=document.createElement("p");
+   notes.textContent="Catatan: "+s.notes;
+   box.append(notes);
+  }
+
+  list.append(box);
+ });
+}
+
+function renderProcurements(){
+ const list=$("procurementList");
+ list.replaceChildren();
+
+ if(!procurements.length){
+  list.textContent="Belum ada riwayat pengadaan.";
+  return;
+ }
+
+ const sorted=[...procurements].sort((a,b)=>
+  (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)
+ );
+
+ sorted.forEach(p=>{
+  const box=document.createElement("div");
+  box.className="order";
+
+  const title=document.createElement("b");
+  title.textContent="Pesanan: "+(p.orderNumber||p.orderId||"-");
+
+  const customer=document.createElement("p");
+  customer.textContent="Pelanggan: "+(p.customerName||"-");
+
+  const supplier=document.createElement("p");
+  supplier.textContent="Pemasok: "+(p.supplierName||"Belum dipilih");
+
+  const cost=document.createElement("p");
+  cost.textContent="Biaya pembelian: "+money(p.purchaseCost);
+
+  const status=document.createElement("span");
+  status.className="badge";
+  status.textContent=p.status||"Perlu Dicek";
+
+  box.append(title,customer,supplier,cost,status);
+
+  if(Array.isArray(p.items)&&p.items.length){
+   const itemsTitle=document.createElement("p");
+   itemsTitle.textContent="Barang yang dibeli:";
+   box.append(itemsTitle);
+
+   p.items.forEach(item=>{
+    const row=document.createElement("p");
+    row.textContent=(item.name||"Produk")+" • "+(Number(item.qty)||0)+" pcs";
+    box.append(row);
+   });
+  }
+
+  if(p.notes){
+   const notes=document.createElement("p");
+   notes.textContent="Catatan: "+p.notes;
+   box.append(notes);
+  }
+
+  list.append(box);
+ });
+}
+
+ 
 function renderOrders(){
  $("totalOrders").textContent=orders.length;
  $("newOrders").textContent=orders.filter(o=>
@@ -596,6 +845,181 @@ function renderOrders(){
   return;
  }
 
+function updateProcurementOrderOptions(){
+ const select=$("procurementOrder");
+ const selected=select.value;
+
+ select.replaceChildren();
+
+ const empty=document.createElement("option");
+ empty.value="";
+ empty.textContent="Pilih pesanan pelanggan";
+ select.append(empty);
+
+ orders
+  .slice()
+  .sort((a,b)=>
+   (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)
+  )
+  .forEach(o=>{
+   const option=document.createElement("option");
+   option.value=o.id;
+
+   const number=o.orderNumber||o.id;
+   const customer=o.customerName||"Pelanggan";
+
+   option.textContent=number+" - "+customer;
+   select.append(option);
+  });
+
+ if([...select.options].some(o=>o.value===selected)){
+  select.value=selected;
+ }
+
+ updateProcurementOrderInfo();
+}
+
+function updateProcurementOrderInfo(){
+ const select=$("procurementOrder");
+ const info=$("procurementOrderInfo");
+
+ const order=orders.find(o=>o.id===select.value);
+
+ if(!order){
+  info.textContent="Belum ada pesanan yang dipilih.";
+  return;
+ }
+
+ const items=Array.isArray(order.items)?order.items:[];
+
+ info.textContent=
+  "Pelanggan: "+(order.customerName||"-")+
+  " | Total: "+money(order.total)+
+  " | Jumlah jenis barang: "+items.length;
+}
+
+$("procurementOrder").onchange=()=>{
+ updateProcurementOrderInfo();
+};
+ 
+$("saveProcurement").onclick=async()=>{
+ const orderId=$("procurementOrder").value;
+ const supplierId=$("procurementSupplier").value;
+ const costValue=$("purchaseCost").value.trim();
+ const purchaseCost=Number(costValue);
+ const status=$("procurementStatus").value;
+ const notes=$("procurementNotes").value.trim();
+ const msg=$("procurementMessage");
+ const btn=$("saveProcurement");
+
+ if(!orderId){
+  msg.textContent="Pilih pesanan pelanggan terlebih dahulu.";
+  return;
+ }
+
+ const order=orders.find(o=>o.id===orderId);
+
+ if(!order){
+  msg.textContent="Pesanan tidak ditemukan.";
+  return;
+ }
+
+ const items=Array.isArray(order.items)?order.items:[];
+
+ if(!items.length){
+  msg.textContent="Pesanan tidak memiliki rincian barang.";
+  return;
+ }
+
+ if(costValue===""||!Number.isFinite(purchaseCost)||purchaseCost<0){
+  msg.textContent="Masukkan biaya pembelian yang valid.";
+  return;
+}
+
+ const supplier=suppliers.find(s=>s.id===supplierId);
+
+ btn.disabled=true;
+ msg.textContent="Menyimpan pengadaan...";
+
+ try{
+  const existing=procurements.find(p=>p.orderId===orderId);
+
+  const data={
+   orderId,
+   orderNumber:order.orderNumber||orderId,
+   customerName:order.customerName||"-",
+   supplierId:supplier?.id||"",
+   supplierName:supplier?.name||"",
+   items:items.map(item=>({
+    name:item.name||"Produk",
+    qty:Number(item.qty)||0,
+    price:Number(item.price)||0
+   })),
+   purchaseCost,
+   status,
+   notes,
+   updatedAt:serverTimestamp()
+  };
+
+  if(existing){
+   await updateDoc(doc(db,"procurements",existing.id),data);
+   msg.textContent="Data pengadaan berhasil diperbarui.";
+  }else{
+   await addDoc(collection(db,"procurements"),{
+    ...data,
+    createdAt:serverTimestamp()
+   });
+   msg.textContent="Pengadaan berhasil disimpan.";
+  }
+
+ }catch(e){
+  msg.textContent="Gagal menyimpan pengadaan: "+e.message;
+ }finally{
+  btn.disabled=false;
+ }
+};
+
+ 
+$("saveSupplier").onclick=async()=>{
+ const name=$("supplierName").value.trim();
+ const phone=$("supplierPhone").value.trim();
+ const address=$("supplierAddress").value.trim();
+ const notes=$("supplierNotes").value.trim();
+ const msg=$("supplierMessage");
+
+ if(!name){
+  msg.textContent="Nama pemasok wajib diisi.";
+  return;
+ }
+
+ const btn=$("saveSupplier");
+ btn.disabled=true;
+ msg.textContent="Menyimpan pemasok...";
+
+ try{
+  await addDoc(collection(db,"suppliers"),{
+   name,
+   phone,
+   address,
+   notes,
+   active:true,
+   createdAt:serverTimestamp(),
+   updatedAt:serverTimestamp()
+  });
+
+  $("supplierName").value="";
+  $("supplierPhone").value="";
+  $("supplierAddress").value="";
+  $("supplierNotes").value="";
+
+  msg.textContent="Pemasok berhasil disimpan.";
+ }catch(e){
+  msg.textContent="Gagal menyimpan pemasok: "+e.message;
+ }finally{
+  btn.disabled=false;
+ }
+};
+ 
  orders.sort((a,b)=>{
   const ta=a.createdAt?.seconds||0;
   const tb=b.createdAt?.seconds||0;
