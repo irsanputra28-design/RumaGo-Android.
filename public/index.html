@@ -378,6 +378,7 @@ $("uploadImage").onclick = async () => {
  }
 };
 
+ 
 let products=[];
 let orders=[];
 let couriers=[];
@@ -786,7 +787,7 @@ function renderProcurements(){
  if(!procurements.length){
   list.textContent="Belum ada riwayat pengadaan.";
   return;
- }
+}
 
  const sorted=[...procurements].sort((a,b)=>
   (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)
@@ -874,8 +875,9 @@ function updateProcurementOrderOptions(){
 function updateProcurementOrderInfo(){
  const select=$("procurementOrder");
  const info=$("procurementOrderInfo");
-
  const order=orders.find(o=>o.id===select.value);
+
+ info.replaceChildren();
 
  if(!order){
   info.textContent="Belum ada pesanan yang dipilih.";
@@ -884,10 +886,42 @@ function updateProcurementOrderInfo(){
 
  const items=Array.isArray(order.items)?order.items:[];
 
- info.textContent=
-  "Pelanggan: "+(order.customerName||"-")+
-  " | Total: "+money(order.total)+
+ const summary=document.createElement("p");
+ summary.textContent=
+  "Pelanggan: "+(order.customerName||"-")+ 
+  " | Total pesanan: "+money(order.total)+
   " | Jumlah jenis barang: "+items.length;
+ info.append(summary);
+
+ const heading=document.createElement("b");
+ heading.textContent="Rincian Barang Pesanan:";
+ info.append(heading);
+
+ if(!items.length){
+  const empty=document.createElement("p");
+  empty.textContent="Rincian barang tidak tersedia pada data pesanan ini.";
+  info.append(empty);
+  return;
+ }
+
+ let totalQty=0;
+ items.forEach((item,index)=>{
+  const qty=Number(item.qty)||0;
+  const price=Number(item.price)||0;
+  const subtotal=qty*price;
+  totalQty+=qty;
+
+  const row=document.createElement("p");
+  row.textContent=
+   (index+1)+". "+(item.name||"Produk tidak bernama")+
+   " • "+qty+" pcs x "+money(price)+
+   " = "+money(subtotal);
+  info.append(row);
+ });
+
+ const quantity=document.createElement("p");
+ quantity.textContent="Total jumlah barang: "+totalQty+" pcs";
+ info.append(quantity);
 }
 
 $("procurementOrder").onchange=()=>{
@@ -1558,9 +1592,9 @@ if(current.stockManaged!==true){
 
   $("orderList").append(box);
  });
-}
+}     
 
-async function loadPaymentSettings(){
+ async function loadPaymentSettings(){
  try{
   const snap=await getDoc(doc(db,"settings","payment"));
   const p=snap.exists()?snap.data():{};
@@ -1693,4 +1727,5 @@ $("savePayment").onclick=savePaymentSettings;
 </script>
 </body>
 </html>
+
                      
