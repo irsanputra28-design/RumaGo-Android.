@@ -920,7 +920,45 @@ function renderOrders(){
 if(current.status==="Dibatalkan"&&nextStatus!=="Dibatalkan"){
   throw new Error("Pesanan yang sudah dibatalkan tidak dapat dibuka kembali.");
 }
+// PENGAMANAN PEMBAYARAN NON-COD
+if(nextStatus==="Diproses"){
+  const paymentMethod=String(
+    current.paymentMethod||""
+  ).trim().toUpperCase();
 
+  const paymentStatus=String(
+    current.paymentStatus||""
+  ).trim();
+
+  if(
+    paymentMethod!=="COD"&&
+    paymentStatus!=="Pembayaran Diterima"
+  ){
+    throw new Error(
+      "Pesanan belum dapat diproses. Pastikan pembayaran non-COD sudah diterima dan diverifikasi."
+    );
+  }
+}
+  // VALIDASI URUTAN STATUS PESANAN
+const currentStatus=current.status||"Menunggu Konfirmasi";
+
+const allowedTransitions={
+  "Menunggu Konfirmasi":["Diproses","Dibatalkan"],
+  "Diproses":["Ditugaskan","Dibatalkan"],
+  "Ditugaskan":["Dalam Pengiriman"],
+  "Dalam Pengiriman":["Terkirim"],
+  "Terkirim":[],
+  "Dibatalkan":[]
+};
+
+if(
+  currentStatus!==nextStatus&&
+  !(allowedTransitions[currentStatus]||[]).includes(nextStatus)
+){
+  throw new Error(
+    "Urutan status tidak sesuai. Status saat ini: "+currentStatus
+  );
+ }   
 if(current.stockManaged!==true){
   transaction.update(orderRef,{
    status:nextStatus,
