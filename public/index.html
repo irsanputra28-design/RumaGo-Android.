@@ -228,14 +228,32 @@ a{color:#0d6845;font-weight:bold}
 <section id="procurementPanel" class="hidden">
  <div class="card">
   <h3>Pengadaan Barang</h3>
-  <p class="muted">Catat pembelian barang dari pemasok untuk memenuhi pesanan pelanggan.</p>
+  <p class="muted">Catat pembelian untuk memenuhi pesanan pelanggan atau menambah stok umum RumaGo.</p>
 
-  <label>Pilih Pesanan Pelanggan</label>
-  <select id="procurementOrder">
-   <option value="">Pilih pesanan</option>
+  <label>Metode Pengadaan *</label>
+  <select id="procurementMethod">
+   <option value="direct_order">Langsung untuk Pesanan Pelanggan</option>
+   <option value="stock_restock">Masuk ke Stok RumaGo (Restock)</option>
   </select>
+  <div class="small-note">Pilih pengadaan khusus pesanan atau pembelian untuk persediaan umum.</div>
 
-  <div id="procurementOrderInfo" class="muted"></div>
+  <div id="procurementOrderWrap">
+   <label>Pilih Pesanan Pelanggan *</label>
+   <select id="procurementOrder">
+    <option value="">Pilih pesanan</option>
+   </select>
+   <div id="procurementOrderInfo" class="muted"></div>
+  </div>
+
+  <div id="procurementRestockWrap" class="hidden">
+   <label>Produk yang akan ditambah stok *</label>
+   <select id="procurementProduct">
+    <option value="">Pilih produk</option>
+   </select>
+   <label>Jumlah barang yang dibeli *</label>
+   <input id="procurementQty" type="number" min="1" step="1" placeholder="Contoh: 10">
+   <div id="procurementProductInfo" class="muted"></div>
+  </div>
 
   <label>Pemasok (opsional)</label>
   <select id="procurementSupplier">
@@ -251,8 +269,6 @@ a{color:#0d6845;font-weight:bold}
    <option>Menunggu Konfirmasi Pemasok</option>
    <option>Siap Dibeli</option>
    <option>Dalam Pembelian</option>
-   <option>Barang Diterima</option>
-   <option>Selesai</option>
    <option>Barang Tidak Tersedia</option>
   </select>
 
@@ -477,6 +493,7 @@ function watchProducts(){
  stopProducts=onSnapshot(collection(db,"products"),snap=>{
   products=snap.docs.map(d=>({id:d.id,...d.data()}));
   renderProducts();
+  updateProcurementProductOptions();
  },e=>message("Gagal membaca produk: "+e.message));
 }
 
@@ -636,7 +653,7 @@ async function removeProduct(id){
    updatedAt:serverTimestamp()
   });
 
-  message("Produk berhasil dinonaktifkan.",true);
+ message("Produk berhasil dinonaktifkan.",true);
  }catch(e){
   message("Gagal menonaktifkan produk: "+e.message);
  }
@@ -788,146 +805,187 @@ function renderProcurements(){
   return;
  }
 
- const sorted=[...procurements].sort((a,b)=>
-  (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)
- );
-
+ const sorted=[...procurements].sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
  sorted.forEach(p=>{
   const box=document.createElement("div");
   box.className="order";
 
   const title=document.createElement("b");
-  title.textContent="Pesanan: "+(p.orderNumber||p.orderId||"-");
-
+  title.textContent=p.method==="stock_restock"?"Restock Stok RumaGo":"Pesanan: "+(p.orderNumber||p.orderId||"-");
+  const method=document.createElement("p");
+  method.textContent="Metode: "+(p.method==="stock_restock"?"Masuk ke Stok RumaGo":"Langsung untuk Pesanan");
   const customer=document.createElement("p");
-  customer.textContent="Pelanggan: "+(p.customerName||"-");
-
+  customer.textContent=p.method==="stock_restock"?"Tujuan: Persediaan umum":"Pelanggan: "+(p.customerName||"-");
   const supplier=document.createElement("p");
   supplier.textContent="Pemasok: "+(p.supplierName||"Belum dipilih");
-
   const cost=document.createElement("p");
   cost.textContent="Biaya pembelian: "+money(p.purchaseCost);
-
   const status=document.createElement("span");
   status.className="badge";
   status.textContent=p.status||"Perlu Dicek";
-
-  box.append(title,customer,supplier,cost,status);
+  box.append(title,method,customer,supplier,cost,status);
 
   if(Array.isArray(p.items)&&p.items.length){
    const itemsTitle=document.createElement("p");
    itemsTitle.textContent="Barang yang dibeli:";
    box.append(itemsTitle);
-
    p.items.forEach(item=>{
     const row=document.createElement("p");
     row.textContent=(item.name||"Produk")+" • "+(Number(item.qty)||0)+" pcs";
     box.append(row);
    });
   }
-
   if(p.notes){
    const notes=document.createElement("p");
    notes.textContent="Catatan: "+p.notes;
    box.append(notes);
   }
 
+  if(p.status!=="Barang Diterima"&&p.status!=="Selesai"&&p.status!=="Barang Tidak Tersedia"){
+   const receive=document.createElement("button");
+   receive.className="primary";
+   receive.textContent="Konfirmasi Barang Diterima";
+   receive.onclick=()=>markProcurementReceived(p.id);
+   box.append(receive);
+  }else if(p.status==="Barang Diterima"){
+   const received=document.createElement("p");
+   received.className="muted";
+   received.textContent=p.method==="stock_restock"?(p.stockApplied===true?"Stok produk sudah ditambahkan.":"Barang diterima; stok belum diterapkan."):"Barang diterima untuk memenuhi pesanan pelanggan; tidak menambah stok umum.";
+   box.append(received);
+  }
   list.append(box);
  });
 }
 
- 
 function updateProcurementOrderOptions(){
  const select=$("procurementOrder");
  const selected=select.value;
-
  select.replaceChildren();
-
  const empty=document.createElement("option");
  empty.value="";
  empty.textContent="Pilih pesanan pelanggan";
  select.append(empty);
-
- orders
-  .slice()
-  .sort((a,b)=>
-   (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)
-  )
-  .forEach(o=>{
-   const option=document.createElement("option");
-   option.value=o.id;
-
-   const number=o.orderNumber||o.id;
-   const customer=o.customerName||"Pelanggan";
-
-   option.textContent=number+" - "+customer;
-   select.append(option);
-  });
-
- if([...select.options].some(o=>o.value===selected)){
-  select.value=selected;
- }
-
+ orders.slice().sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)).forEach(o=>{
+  const option=document.createElement("option");
+  option.value=o.id;
+  option.textContent=(o.orderNumber||o.id)+" - "+(o.customerName||"Pelanggan");
+  select.append(option);
+ });
+ if([...select.options].some(o=>o.value===selected))select.value=selected;
  updateProcurementOrderInfo();
+}
+
+function updateProcurementProductOptions(){
+ const select=$("procurementProduct");
+ if(!select)return;
+ const selected=select.value;
+ select.replaceChildren();
+ const empty=document.createElement("option");
+ empty.value="";
+ empty.textContent="Pilih produk";
+ select.append(empty);
+ products.filter(p=>p.active!==false).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).forEach(p=>{
+  const option=document.createElement("option");
+  option.value=p.id;
+  option.textContent=(p.name||"Produk")+" • Stok saat ini: "+(Number(p.stock)||0);
+  select.append(option);
+ });
+ if([...select.options].some(o=>o.value===selected))select.value=selected;
+ updateProcurementProductInfo();
+}
+
+function updateProcurementProductInfo(){
+ const info=$("procurementProductInfo");
+ if(!info)return;
+ const p=products.find(x=>x.id===$("procurementProduct").value);
+ info.textContent=p?"Stok saat ini: "+(Number(p.stock)||0)+" pcs | Harga jual: "+money(p.price):"Pilih produk yang akan ditambah stok.";
+}
+
+function updateProcurementMethodUI(){
+ const method=$("procurementMethod").value;
+ const restock=method==="stock_restock";
+ $("procurementOrderWrap").classList.toggle("hidden",restock);
+ $("procurementRestockWrap").classList.toggle("hidden",!restock);
+ if(restock)updateProcurementProductOptions();
 }
 
 function updateProcurementOrderInfo(){
  const select=$("procurementOrder");
  const info=$("procurementOrderInfo");
  const order=orders.find(o=>o.id===select.value);
-
  info.replaceChildren();
-
- if(!order){
-  info.textContent="Belum ada pesanan yang dipilih.";
-  return;
- }
-
+ if(!order){info.textContent="Belum ada pesanan yang dipilih.";return;}
  const items=Array.isArray(order.items)?order.items:[];
-
  const summary=document.createElement("p");
- summary.textContent=
-  "Pelanggan: "+(order.customerName||"-")+ 
-  " | Total pesanan: "+money(order.total)+
-  " | Jumlah jenis barang: "+items.length;
+ summary.textContent="Pelanggan: "+(order.customerName||"-")+" | Total pesanan: "+money(order.total)+" | Jumlah jenis barang: "+items.length;
  info.append(summary);
-
  const heading=document.createElement("b");
  heading.textContent="Rincian Barang Pesanan:";
  info.append(heading);
-
- if(!items.length){
-  const empty=document.createElement("p");
-  empty.textContent="Rincian barang tidak tersedia pada data pesanan ini.";
-  info.append(empty);
-  return;
- }
-
+ if(!items.length){const empty=document.createElement("p");empty.textContent="Rincian barang tidak tersedia pada data pesanan ini.";info.append(empty);return;}
  let totalQty=0;
  items.forEach((item,index)=>{
-  const qty=Number(item.qty)||0;
-  const price=Number(item.price)||0;
-  const subtotal=qty*price;
-  totalQty+=qty;
-
+  const qty=Number(item.qty)||0;const price=Number(item.price)||0;totalQty+=qty;
   const row=document.createElement("p");
-  row.textContent=
-   (index+1)+". "+(item.name||"Produk tidak bernama")+
-   " • "+qty+" pcs x "+money(price)+
-   " = "+money(subtotal);
+  row.textContent=(index+1)+". "+(item.name||"Produk tidak bernama")+" • "+qty+" pcs x "+money(price)+" = "+money(qty*price);
   info.append(row);
  });
-
  const quantity=document.createElement("p");
  quantity.textContent="Total jumlah barang: "+totalQty+" pcs";
  info.append(quantity);
 }
 
-$("procurementOrder").onchange=()=>{
- updateProcurementOrderInfo();
-};
- 
+$("procurementMethod").onchange=updateProcurementMethodUI;
+$("procurementOrder").onchange=updateProcurementOrderInfo;
+$("procurementProduct").onchange=updateProcurementProductInfo;
+updateProcurementMethodUI();
+
+async function markProcurementReceived(procurementId){
+ const p=procurements.find(x=>x.id===procurementId);
+ if(!p)return;
+ if(!confirm("Konfirmasi barang sudah benar-benar diterima?"))return;
+ try{
+  const procurementRef=doc(db,"procurements",procurementId);
+  if(p.method!=="stock_restock"){
+   const orderRef=p.orderId?doc(db,"orders",p.orderId):null;
+   await runTransaction(db,async transaction=>{
+    const snap=await transaction.get(procurementRef);
+    if(!snap.exists())throw new Error("Data pengadaan tidak ditemukan.");
+    const current=snap.data();
+    if(current.status==="Barang Diterima"||current.status==="Selesai")return;
+    if(!orderRef)throw new Error("Pengadaan ini tidak terhubung dengan pesanan pelanggan.");
+    const orderSnap=await transaction.get(orderRef);
+    if(!orderSnap.exists())throw new Error("Pesanan pelanggan tidak ditemukan.");
+    transaction.update(procurementRef,{status:"Barang Diterima",receivedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    transaction.update(orderRef,{procurementFulfillment:true,procurementReceived:true,procurementId,updatedAt:serverTimestamp()});
+   });
+   alert("Penerimaan barang dicatat dan dihubungkan ke pesanan pelanggan. Stok umum tidak berubah.");
+   return;
+  }
+
+  const item=Array.isArray(p.items)?p.items[0]:null;
+  if(!item||!item.id)throw new Error("Data produk restock tidak valid.");
+  const productRef=doc(db,"products",item.id);
+  await runTransaction(db,async transaction=>{
+   const procurementSnap=await transaction.get(procurementRef);
+   if(!procurementSnap.exists())throw new Error("Data pengadaan tidak ditemukan.");
+   const current=procurementSnap.data();
+   if(current.stockApplied===true||current.status==="Barang Diterima"||current.status==="Selesai")return;
+   const productSnap=await transaction.get(productRef);
+   if(!productSnap.exists())throw new Error("Produk tidak ditemukan di katalog.");
+   const oldStock=Number(productSnap.data().stock);
+   const qty=Number(item.qty);
+   if(!Number.isFinite(oldStock)||oldStock<0||!Number.isInteger(qty)||qty<=0)throw new Error("Data stok atau jumlah barang tidak valid.");
+   transaction.update(productRef,{stock:oldStock+qty,updatedAt:serverTimestamp()});
+   transaction.update(procurementRef,{status:"Barang Diterima",stockApplied:true,stockAppliedAt:serverTimestamp(),receivedAt:serverTimestamp(),stockMovement:{productId:item.id,productName:item.name||productSnap.data().name||"Produk",type:"IN",quantity:qty,stockBefore:oldStock,stockAfter:oldStock+qty},updatedAt:serverTimestamp()});
+   transaction.set(movementRef,{productId:item.id,productName:item.name||productSnap.data().name||"Produk",type:"IN",quantity:qty,stockBefore:oldStock,stockAfter:oldStock+qty,source:"procurement",procurementId, supplierId:current.supplierId||"",supplierName:current.supplierName||"",createdAt:serverTimestamp()});
+  });
+  alert("Barang diterima. Stok produk berhasil ditambahkan satu kali.");
+ }catch(e){alert("Gagal mencatat penerimaan: "+e.message);}
+}
+
 $("saveProcurement").onclick=async()=>{
+ const method=$("procurementMethod").value;
  const orderId=$("procurementOrder").value;
  const supplierId=$("procurementSupplier").value;
  const costValue=$("purchaseCost").value.trim();
@@ -936,72 +994,34 @@ $("saveProcurement").onclick=async()=>{
  const notes=$("procurementNotes").value.trim();
  const msg=$("procurementMessage");
  const btn=$("saveProcurement");
-
- if(!orderId){
-  msg.textContent="Pilih pesanan pelanggan terlebih dahulu.";
-  return;
+ let order=null;let items=[];let product=null;
+ if(method==="direct_order"){
+  if(!orderId){msg.textContent="Pilih pesanan pelanggan terlebih dahulu.";return;}
+  order=orders.find(o=>o.id===orderId);
+  if(!order){msg.textContent="Pesanan tidak ditemukan.";return;}
+  items=Array.isArray(order.items)?order.items:[];
+  if(!items.length){msg.textContent="Pesanan tidak memiliki rincian barang.";return;}
+  if(items.some(i=>!Number.isInteger(Number(i.qty))||Number(i.qty)<=0)){msg.textContent="Jumlah barang pada pesanan tidak valid.";return;}
+ }else{
+  const productId=$("procurementProduct").value;
+  product=products.find(p=>p.id===productId&&p.active!==false);
+  const qty=Number($("procurementQty").value);
+  if(!product){msg.textContent="Pilih produk untuk restock.";return;}
+  if(!Number.isInteger(qty)||qty<=0){msg.textContent="Jumlah restock harus bilangan bulat lebih dari nol.";return;}
+  items=[{id:product.id,name:product.name||"Produk",qty,price:Number(product.price)||0}];
  }
-
- const order=orders.find(o=>o.id===orderId);
-
- if(!order){
-  msg.textContent="Pesanan tidak ditemukan.";
-  return;
- }
-
- const items=Array.isArray(order.items)?order.items:[];
-
- if(!items.length){
-  msg.textContent="Pesanan tidak memiliki rincian barang.";
-  return;
- }
-
- if(costValue===""||!Number.isFinite(purchaseCost)||purchaseCost<0){
-  msg.textContent="Masukkan biaya pembelian yang valid.";
-  return;
-}
-
+ if(costValue===""||!Number.isFinite(purchaseCost)||purchaseCost<0){msg.textContent="Masukkan biaya pembelian yang valid.";return;}
  const supplier=suppliers.find(s=>s.id===supplierId);
-
- btn.disabled=true;
- msg.textContent="Menyimpan pengadaan...";
-
+ btn.disabled=true;msg.textContent="Menyimpan pengadaan...";
  try{
-  const existing=procurements.find(p=>p.orderId===orderId);
-
-  const data={
-   orderId,
-   orderNumber:order.orderNumber||orderId,
-   customerName:order.customerName||"-",
-   supplierId:supplier?.id||"",
-   supplierName:supplier?.name||"",
-   items:items.map(item=>({
-    name:item.name||"Produk",
-    qty:Number(item.qty)||0,
-    price:Number(item.price)||0
-   })),
-   purchaseCost,
-   status,
-   notes,
-   updatedAt:serverTimestamp()
-  };
-
- if(existing){
-   await updateDoc(doc(db,"procurements",existing.id),data);
-   msg.textContent="Data pengadaan berhasil diperbarui.";
-  }else{
-   await addDoc(collection(db,"procurements"),{
-    ...data,
-    createdAt:serverTimestamp()
-   });
-   msg.textContent="Pengadaan berhasil disimpan.";
-  }
-
- }catch(e){
-  msg.textContent="Gagal menyimpan pengadaan: "+e.message;
- }finally{
-  btn.disabled=false;
- }
+  const existing=method==="direct_order"?procurements.find(p=>p.method!=="stock_restock"&&p.orderId===orderId):null;
+  if(existing&&["Barang Diterima","Selesai"].includes(existing.status))throw new Error("Pengadaan pesanan ini sudah diterima. Buat perubahan melalui riwayat, bukan membuat pengadaan ulang.");
+  const data={method,orderId:method==="direct_order"?orderId:"",orderNumber:method==="direct_order"?(order.orderNumber||orderId):"",customerName:method==="direct_order"?(order.customerName||"-"):"",supplierId:supplier?.id||"",supplierName:supplier?.name||"",items:items.map(item=>({id:item.id||"",name:item.name||"Produk",qty:Number(item.qty)||0,price:Number(item.price)||0})),purchaseCost,status,notes,updatedAt:serverTimestamp()};
+  if(existing){await updateDoc(doc(db,"procurements",existing.id),data);msg.textContent="Data pengadaan berhasil diperbarui.";}
+  else{await addDoc(collection(db,"procurements"),{...data,createdAt:serverTimestamp()});msg.textContent="Pengadaan berhasil disimpan.";}
+  $("purchaseCost").value="";$("procurementNotes").value="";$("procurementQty").value="";
+ }catch(e){msg.textContent="Gagal menyimpan pengadaan: "+e.message;}
+ finally{btn.disabled=false;}
 };
 
 
@@ -1422,6 +1442,16 @@ if(
     "Urutan status tidak sesuai. Status saat ini: "+currentStatus
   );
  }   
+if(current.procurementFulfillment===true&&current.procurementReceived===true){
+  transaction.update(orderRef,{
+   status:nextStatus,
+   stockDeducted:false,
+   procurementFulfillment:true,
+   updatedAt:serverTimestamp()
+  });
+  return;
+}
+
 if(current.stockManaged!==true){
   transaction.update(orderRef,{
    status:nextStatus,
@@ -1728,4 +1758,7 @@ $("savePayment").onclick=savePaymentSettings;
 </html>
 
 
-             
+
+
+
+  
