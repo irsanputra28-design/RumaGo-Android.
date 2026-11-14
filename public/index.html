@@ -378,7 +378,6 @@ $("uploadImage").onclick = async () => {
  }
 };
 
- 
 let products=[];
 let orders=[];
 let couriers=[];
@@ -667,7 +666,7 @@ function watchOrders(){
 function watchUsers(){
  stopUsers=onSnapshot(collection(db,"users"),snap=>{
   couriers=snap.docs
-   .map(d=>({id:d.id,...d.data()}))
+      .map(d=>({id:d.id,...d.data()}))
    .filter(u=>["kurir","courier"].includes(
     String(u.role||"").trim().toLowerCase()
    ));
@@ -787,7 +786,7 @@ function renderProcurements(){
  if(!procurements.length){
   list.textContent="Belum ada riwayat pengadaan.";
   return;
-}
+ }
 
  const sorted=[...procurements].sort((a,b)=>
   (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)
@@ -1005,8 +1004,8 @@ $("saveProcurement").onclick=async()=>{
  }
 };
 
- 
-$("saveSupplier").onclick=async()=>{
+
+ $("saveSupplier").onclick=async()=>{
  const name=$("supplierName").value.trim();
  const phone=$("supplierPhone").value.trim();
  const address=$("supplierAddress").value.trim();
@@ -1592,9 +1591,9 @@ if(current.stockManaged!==true){
 
   $("orderList").append(box);
  });
-}     
+}
 
- async function loadPaymentSettings(){
+async function loadPaymentSettings(){
  try{
   const snap=await getDoc(doc(db,"settings","payment"));
   const p=snap.exists()?snap.data():{};
@@ -1728,4 +1727,5 @@ $("savePayment").onclick=savePaymentSettings;
 </body>
 </html>
 
-                     
+
+             
