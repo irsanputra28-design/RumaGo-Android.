@@ -197,7 +197,6 @@ a{color:#0d6845;font-weight:bold}
 <div id="paymentMessage" class="muted"></div>
 </div>
 </section>
-</section>
  
 <section id="suppliersPanel" class="hidden">
  <div class="card">
@@ -268,6 +267,7 @@ a{color:#0d6845;font-weight:bold}
   <h3>Riwayat Pengadaan</h3>
   <div id="procurementList">Memuat pengadaan...</div>
  </div>
+</section>
 </section>
  
 </main>
@@ -415,8 +415,13 @@ $("loginBtn").onclick=async()=>{
 };
 
 onAuthStateChanged(auth,async user=>{
- stopProducts?.();stopOrders?.();stopUsers?.();
- stopProducts=stopOrders=stopUsers=null;
+ stopProducts?.();
+ stopOrders?.();
+ stopUsers?.();
+ stopSuppliers?.();
+ stopProcurements?.();
+
+ stopProducts=stopOrders=stopUsers=stopSuppliers=stopProcurements=null;
 
  if(!user){
   $("login").classList.remove("hidden");
@@ -832,19 +837,6 @@ function renderProcurements(){
 }
 
  
-function renderOrders(){
- $("totalOrders").textContent=orders.length;
- $("newOrders").textContent=orders.filter(o=>
-  ["Menunggu Konfirmasi","Baru"].includes(o.status)
- ).length;
-
- $("orderList").replaceChildren();
-
- if(!orders.length){
-  $("orderList").textContent="Belum ada pesanan.";
-  return;
- }
-
 function updateProcurementOrderOptions(){
  const select=$("procurementOrder");
  const selected=select.value;
@@ -961,7 +953,7 @@ $("saveProcurement").onclick=async()=>{
    updatedAt:serverTimestamp()
   };
 
-  if(existing){
+ if(existing){
    await updateDoc(doc(db,"procurements",existing.id),data);
    msg.textContent="Data pengadaan berhasil diperbarui.";
   }else{
@@ -1020,7 +1012,21 @@ $("saveSupplier").onclick=async()=>{
  }
 };
  
- orders.sort((a,b)=>{
+ 
+function renderOrders(){
+ $("totalOrders").textContent=orders.length;
+ $("newOrders").textContent=orders.filter(o=>
+  ["Menunggu Konfirmasi","Baru"].includes(o.status)
+ ).length;
+
+ $("orderList").replaceChildren();
+
+ if(!orders.length){
+  $("orderList").textContent="Belum ada pesanan.";
+  return;
+ }
+
+orders.sort((a,b)=>{
   const ta=a.createdAt?.seconds||0;
   const tb=b.createdAt?.seconds||0;
   return tb-ta;
@@ -1262,7 +1268,7 @@ $("saveSupplier").onclick=async()=>{
    select.append(option);
   });
 
-  const assign=document.createElement("button");
+ const assign=document.createElement("button");
   assign.className="primary";
   assign.textContent="Simpan Kurir";
 
@@ -1453,9 +1459,9 @@ if(current.stockManaged!==true){
       });
 
       return;
-     }
+     }  
 
-     // PENGEMBALIAN STOK JIKA DIBATALKAN
+      // PENGEMBALIAN STOK JIKA DIBATALKAN
      if(nextStatus==="Dibatalkan"&&
         current.stockDeducted===true&&
         current.stockRestored!==true){
@@ -1687,3 +1693,4 @@ $("savePayment").onclick=savePaymentSettings;
 </script>
 </body>
 </html>
+                     
